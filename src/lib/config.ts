@@ -30,6 +30,7 @@ export class ConfigLoader {
         const content = await readFile(join(process.cwd(), '.npm-outdated-check.json'), 'utf-8');
         userConfig = JSON.parse(content);
       } catch {
+        // Config file is optional - use defaults if not found
       }
     }
 
