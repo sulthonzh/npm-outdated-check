@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [24]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test --if-present
+
+      - name: Check for banned patterns
+        run: |
+          # No TODO/FIXME/HACK in source
+          ! grep -rn "TODO\|FIXME\|HACK" src/ app/ --include='*.ts' --include='*.tsx' 2>/dev/null | head -5 || exit 1
+          # No `any` types (except node_modules)
+          ! grep -rn ": any\b" src/ app/ --include='*.ts' --include='*.tsx' 2>/dev/null | head -5 || exit 1
+          echo "Banned patterns check passed"
