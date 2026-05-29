@@ -8,11 +8,20 @@ const DEFAULT_CONFIG: Config = {
   maxPatch: 5,
   include: ['prod', 'dev'],
   exclude: [],
+  excludePatterns: [],
+  ignoreRanges: false,
   registry: 'https://registry.npmjs.org',
   format: 'text',
   failOnAny: false,
   verbose: false,
+  showSuggestions: false,
 };
+
+const CONFIG_FILENAMES = [
+  '.npm-outdated-check.json',
+  '.npmoutdatedrc',
+  '.npm-outdatedrc.json',
+];
 
 export class ConfigLoader {
   static async load(configPath?: string): Promise<Config> {
@@ -26,11 +35,14 @@ export class ConfigLoader {
         throw new Error(`Failed to load config from ${configPath}: ${error}`);
       }
     } else {
-      try {
-        const content = await readFile(join(process.cwd(), '.npm-outdated-check.json'), 'utf-8');
-        userConfig = JSON.parse(content);
-      } catch {
-        // Config file is optional - use defaults if not found
+      for (const filename of CONFIG_FILENAMES) {
+        try {
+          const content = await readFile(join(process.cwd(), filename), 'utf-8');
+          userConfig = JSON.parse(content);
+          break;
+        } catch {
+          // Config file is optional - try next
+        }
       }
     }
 
@@ -50,8 +62,23 @@ export class ConfigLoader {
 
     if (config.include.length === 0) errors.push('include must have at least one type');
 
-    if (!['text', 'json', 'table'].includes(config.format)) {
-      errors.push('format must be text, json, or table');
+    const validTypes = ['prod', 'dev', 'peer', 'optional'];
+    for (const t of config.include) {
+      if (!validTypes.includes(t)) {
+        errors.push(`include type "${t}" is not valid (valid: ${validTypes.join(', ')})`);
+      }
+    }
+
+    if (!['text', 'json', 'table', 'summary'].includes(config.format)) {
+      errors.push('format must be text, json, table, or summary');
+    }
+
+    for (const pattern of config.excludePatterns) {
+      try {
+        new RegExp(pattern);
+      } catch {
+        errors.push(`excludePatterns contains invalid regex: "${pattern}"`);
+      }
     }
 
     return { valid: errors.length === 0, errors };

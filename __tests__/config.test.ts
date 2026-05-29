@@ -9,7 +9,10 @@ describe('ConfigLoader', () => {
     expect(config.maxPatch).toBe(5);
     expect(config.include).toEqual(['prod', 'dev']);
     expect(config.exclude).toEqual([]);
+    expect(config.excludePatterns).toEqual([]);
+    expect(config.ignoreRanges).toBe(false);
     expect(config.registry).toBe('https://registry.npmjs.org');
+    expect(config.showSuggestions).toBe(false);
   });
 
   it('should merge CLI options', async () => {
@@ -35,10 +38,13 @@ describe('ConfigLoader', () => {
       maxPatch: 5,
       include: ['prod', 'dev'] as const,
       exclude: [],
+      excludePatterns: [],
+      ignoreRanges: false,
       registry: 'https://registry.npmjs.org',
       format: 'text' as const,
       failOnAny: false,
       verbose: false,
+      showSuggestions: false,
     };
 
     const result = ConfigLoader.validate(validConfig);
@@ -53,10 +59,13 @@ describe('ConfigLoader', () => {
       maxPatch: 5,
       include: ['prod', 'dev'] as const,
       exclude: [],
+      excludePatterns: [],
+      ignoreRanges: false,
       registry: 'https://registry.npmjs.org',
       format: 'text' as const,
       failOnAny: false,
       verbose: false,
+      showSuggestions: false,
     };
 
     const result = ConfigLoader.validate(invalidConfig);
@@ -71,14 +80,98 @@ describe('ConfigLoader', () => {
       maxPatch: 5,
       include: ['prod', 'dev'] as const,
       exclude: [],
+      excludePatterns: [],
+      ignoreRanges: false,
       registry: 'https://registry.npmjs.org',
       format: 'invalid' as any,
       failOnAny: false,
       verbose: false,
+      showSuggestions: false,
     };
 
     const result = ConfigLoader.validate(invalidConfig);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContain('format must be text, json, or table');
+    expect(result.errors).toContain('format must be text, json, table, or summary');
+  });
+
+  it('should accept summary format', () => {
+    const config = {
+      maxMajor: 0,
+      maxMinor: 2,
+      maxPatch: 5,
+      include: ['prod', 'dev'] as const,
+      exclude: [],
+      excludePatterns: [],
+      ignoreRanges: false,
+      registry: 'https://registry.npmjs.org',
+      format: 'summary' as const,
+      failOnAny: false,
+      verbose: false,
+      showSuggestions: false,
+    };
+
+    const result = ConfigLoader.validate(config);
+    expect(result.valid).toBe(true);
+  });
+
+  it('should accept peer and optional dep types', () => {
+    const config = {
+      maxMajor: 0,
+      maxMinor: 2,
+      maxPatch: 5,
+      include: ['prod', 'dev', 'peer', 'optional'] as const,
+      exclude: [],
+      excludePatterns: [],
+      ignoreRanges: false,
+      registry: 'https://registry.npmjs.org',
+      format: 'text' as const,
+      failOnAny: false,
+      verbose: false,
+      showSuggestions: false,
+    };
+
+    const result = ConfigLoader.validate(config);
+    expect(result.valid).toBe(true);
+  });
+
+  it('should reject invalid dep types', () => {
+    const config = {
+      maxMajor: 0,
+      maxMinor: 2,
+      maxPatch: 5,
+      include: ['prod', 'invalid' as any],
+      exclude: [],
+      excludePatterns: [],
+      ignoreRanges: false,
+      registry: 'https://registry.npmjs.org',
+      format: 'text' as const,
+      failOnAny: false,
+      verbose: false,
+      showSuggestions: false,
+    };
+
+    const result = ConfigLoader.validate(config);
+    expect(result.valid).toBe(false);
+  });
+
+  it('should validate excludePatterns regex', () => {
+    const config = {
+      maxMajor: 0,
+      maxMinor: 2,
+      maxPatch: 5,
+      include: ['prod', 'dev'] as const,
+      exclude: [],
+      excludePatterns: ['^@types/', '[invalid'],
+      ignoreRanges: false,
+      registry: 'https://registry.npmjs.org',
+      format: 'text' as const,
+      failOnAny: false,
+      verbose: false,
+      showSuggestions: false,
+    };
+
+    const result = ConfigLoader.validate(config);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('invalid regex'))).toBe(true);
   });
 });
