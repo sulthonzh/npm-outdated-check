@@ -7,4 +7,4 @@ dist
 .cache
 coverage
 *.db
-*.sqlite
+*.sqlite.github/workflows/publish.yml
