@@ -1,0 +1,40 @@
+# Dependencies
+node_modules
+
+# Build artifacts
+dist
+*.tsbuildinfo
+
+# Development files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Test artifacts
+__tests__
+coverage
+*.lcov
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+.tmp
+.temp
+
+# Cache
+.cache
+*.tmp
