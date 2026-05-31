@@ -8,3 +8,4 @@ dist
 coverage
 *.db
 *.sqlite.github/workflows/publish.yml
+publish.yml

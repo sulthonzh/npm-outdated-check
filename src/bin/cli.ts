@@ -44,7 +44,7 @@ async function main() {
     let config = await ConfigLoader.load(options.config);
 
     const includeTypes = parseDepOption(options.dep);
-    const exclude = options.exclude ? options.exclude.split(',').map((s: string) => s.trim()) : [];
+    const exclude = options.exclude ? options.exclude.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
 
     const cliOptions: Partial<Config> = {
       maxMajor: parseInt(options.maxMajor, 10),
