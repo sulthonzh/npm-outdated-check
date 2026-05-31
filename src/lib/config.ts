@@ -50,7 +50,14 @@ export class ConfigLoader {
   }
 
   static mergeWithCli(config: Config, cliOptions: Partial<Config>): Config {
-    return { ...config, ...cliOptions };
+    const result = { ...config };
+    for (const [key, value] of Object.entries(cliOptions)) {
+      if (value === undefined) continue;
+      if (Array.isArray(value) && value.every((v) => v === '')) continue;
+      if (typeof value === 'string' && value === '') continue;
+      (result as Record<string, unknown>)[key] = value;
+    }
+    return result;
   }
 
   static validate(config: Config): { valid: boolean; errors: string[] } {

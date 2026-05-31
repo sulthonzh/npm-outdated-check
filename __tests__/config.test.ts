@@ -31,6 +31,33 @@ describe('ConfigLoader', () => {
     expect(merged.maxPatch).toBe(5);
   });
 
+  it('should not overwrite config with undefined CLI options', async () => {
+    const baseConfig = await ConfigLoader.load();
+    const cliOptions = {
+      maxMajor: undefined as unknown as number,
+      exclude: [] as string[],
+    };
+
+    const merged = ConfigLoader.mergeWithCli(baseConfig, cliOptions);
+
+    expect(merged.maxMajor).toBe(0); // kept default
+    expect(merged.exclude).toEqual([]); // kept default
+  });
+
+  it('should not overwrite config file exclude with empty CLI exclude', async () => {
+    const baseConfig: import('../src/types/config.js').Config = {
+      ...await ConfigLoader.load(),
+      exclude: ['some-pkg'],
+    };
+    const cliOptions = {
+      exclude: [''],  // empty string from unprovided --exclude
+    };
+
+    const merged = ConfigLoader.mergeWithCli(baseConfig, cliOptions);
+
+    expect(merged.exclude).toEqual(['some-pkg']); // config file value preserved
+  });
+
   it('should validate config', () => {
     const validConfig = {
       maxMajor: 0,
