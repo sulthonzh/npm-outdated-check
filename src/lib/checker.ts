@@ -128,7 +128,14 @@ export class OutdatedChecker {
   }
 
   private isExcluded(packageName: string): boolean {
-    return this.config.exclude.includes(packageName);
+    return this.config.exclude.some((pattern) => {
+      if (!pattern.includes('*')) {
+        return pattern === packageName;
+      }
+      // Convert glob pattern to regex: @types/* → ^@types/[^/]+$ 
+      const regexStr = '^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]+') + '$';
+      return new RegExp(regexStr).test(packageName);
+    });
   }
 
   getExitCode(violations: VersionDiff[]): ExitCode {

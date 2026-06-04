@@ -28,6 +28,7 @@ export interface Config {
   format: 'text' | 'json' | 'table';
   failOnAny: boolean;
   verbose: boolean;
+  onlyViolations: boolean;
 }
 
 export interface CheckResult {

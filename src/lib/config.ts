@@ -12,6 +12,7 @@ const DEFAULT_CONFIG: Config = {
   format: 'text',
   failOnAny: false,
   verbose: false,
+  onlyViolations: false,
 };
 
 export class ConfigLoader {
