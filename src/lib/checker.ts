@@ -54,7 +54,7 @@ export class OutdatedChecker {
   }
 
   private async getPackageInfo(packageJson: NpmPackageJson): Promise<PackageInfo[]> {
-    const packages: PackageInfo[] = [];
+    const entries: Array<{ name: string; version: string; type: PackageInfo['type'] }> = [];
     const depTypes: Array<{ deps: Record<string, string> | undefined; type: PackageInfo['type'] }> = [
       { deps: packageJson.dependencies, type: 'prod' },
       { deps: packageJson.devDependencies, type: 'dev' },
@@ -64,23 +64,22 @@ export class OutdatedChecker {
 
     for (const { deps, type } of depTypes) {
       if (!deps || !this.config.include.includes(type)) continue;
-
       for (const [name, version] of Object.entries(deps)) {
-        const latest = await this.getLatestVersion(name);
-        if (latest) {
-          packages.push({
-            name,
-            current: version,
-            latest,
-            wanted: version,
-            type,
-            direct: true,
-          });
-        }
+        entries.push({ name, version, type });
       }
     }
 
-    return packages;
+    const results = await Promise.allSettled(
+      entries.map(async ({ name, version, type }) => {
+        const latest = await this.getLatestVersion(name);
+        return latest ? { name, current: version, latest, wanted: version, type, direct: true } as PackageInfo : null;
+      })
+    );
+
+    return results
+      .filter((r): r is PromiseFulfilledResult<PackageInfo | null> => r.status === 'fulfilled')
+      .map((r) => r.value)
+      .filter((v): v is PackageInfo => v !== null);
   }
 
   private async getLatestVersion(packageName: string): Promise<string | null> {

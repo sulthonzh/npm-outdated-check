@@ -70,7 +70,7 @@ describe('ConfigLoader', () => {
 
     const result = ConfigLoader.validate(invalidConfig);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContain('maxMajor must be >= 0');
+    expect(result.errors).toContain('maxMajor must be a number >= 0');
   });
 
   it('should reject invalid format', () => {
