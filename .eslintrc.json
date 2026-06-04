@@ -19,5 +19,5 @@
     "@typescript-eslint/no-floating-promises": "off",
     "no-console": "off"
   },
-  "ignorePatterns": ["dist", "node_modules"]
+  "ignorePatterns": ["dist", "node_modules", "**/*.d.ts"]
 }
