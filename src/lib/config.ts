@@ -56,9 +56,9 @@ export class ConfigLoader {
   static validate(config: Config): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    if (config.maxMajor < 0) errors.push('maxMajor must be >= 0');
-    if (config.maxMinor < 0) errors.push('maxMinor must be >= 0');
-    if (config.maxPatch < 0) errors.push('maxPatch must be >= 0');
+    if (typeof config.maxMajor !== 'number' || isNaN(config.maxMajor) || config.maxMajor < 0) errors.push('maxMajor must be a number >= 0');
+    if (typeof config.maxMinor !== 'number' || isNaN(config.maxMinor) || config.maxMinor < 0) errors.push('maxMinor must be a number >= 0');
+    if (typeof config.maxPatch !== 'number' || isNaN(config.maxPatch) || config.maxPatch < 0) errors.push('maxPatch must be a number >= 0');
 
     if (config.include.length === 0) errors.push('include must have at least one type');
 
@@ -71,6 +71,12 @@ export class ConfigLoader {
 
     if (!['text', 'json', 'table', 'summary'].includes(config.format)) {
       errors.push('format must be text, json, table, or summary');
+    }
+
+    try {
+      new URL(config.registry);
+    } catch {
+      errors.push(`registry must be a valid URL: "${config.registry}"`);
     }
 
     for (const pattern of config.excludePatterns) {

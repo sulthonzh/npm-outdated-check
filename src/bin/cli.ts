@@ -47,9 +47,9 @@ async function main() {
     const exclude = options.exclude ? options.exclude.split(',').map((s: string) => s.trim()) : [];
 
     const cliOptions: Partial<Config> = {
-      maxMajor: parseInt(options.maxMajor, 10),
-      maxMinor: parseInt(options.maxMinor, 10),
-      maxPatch: parseInt(options.maxPatch, 10),
+      maxMajor: parseInt(options.maxMajor, 10) || 0,
+      maxMinor: parseInt(options.maxMinor, 10) || 0,
+      maxPatch: parseInt(options.maxPatch, 10) || 0,
       include: includeTypes,
       exclude,
       excludePatterns: options.excludePattern || [],
