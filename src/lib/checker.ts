@@ -31,8 +31,17 @@ export class OutdatedChecker {
 
   private async readPackageJson(): Promise<NpmPackageJson> {
     const packagePath = join(this.basePath, 'package.json');
-    const content = await readFile(packagePath, 'utf-8');
-    return JSON.parse(content);
+    let content: string;
+    try {
+      content = await readFile(packagePath, 'utf-8');
+    } catch {
+      throw new Error(`package.json not found at ${packagePath}`);
+    }
+    try {
+      return JSON.parse(content);
+    } catch {
+      throw new Error(`package.json at ${packagePath} contains invalid JSON`);
+    }
   }
 
   private async getPackageInfo(packageJson: NpmPackageJson): Promise<PackageInfo[]> {
@@ -75,8 +84,16 @@ export class OutdatedChecker {
 
   private async getLatestVersion(packageName: string): Promise<string | null> {
     try {
-      const url = `${this.config.registry}/${packageName}`;
-      const response = await fetch(url);
+      // Encode scoped packages: @org/pkg → @org%2Fpkg
+      const encoded = packageName.startsWith('@')
+        ? packageName.replace('/', '%2F')
+        : packageName;
+      const url = `${this.config.registry}/${encoded}`;
+
+      // Use abbreviated metadata to avoid downloading 5MB+ for popular packages
+      const response = await fetch(url, {
+        headers: { Accept: 'application/vnd.npm.install-v1+json' },
+      });
 
       if (!response.ok) {
         return null;
