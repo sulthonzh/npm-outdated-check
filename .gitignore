@@ -1,5 +1,11 @@
 node_modules
 dist
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map
+__tests__/**/*.js
+__tests__/**/*.d.ts
 *.log
 .DS_Store
 .env
