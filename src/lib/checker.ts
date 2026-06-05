@@ -75,7 +75,8 @@ export class OutdatedChecker {
 
   private async getLatestVersion(packageName: string): Promise<string | null> {
     try {
-      const url = `${this.config.registry}/${packageName}`;
+      const encodedName = packageName.replace(/^@/, '%40').replace(///g, '%2F');
+      const url = `${this.config.registry}/${encodedName}`;
       const response = await fetch(url);
 
       if (!response.ok) {

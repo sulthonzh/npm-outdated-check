@@ -8,3 +8,16 @@ dist
 coverage
 *.db
 *.sqlite
+
+# Compiled TypeScript build artifacts
+# (only track .ts source files in src/ and __tests__/)
+*.js.map
+*.d.ts.map
+src/**/*.js
+src/**/*.d.ts
+__tests__/**/*.js
+__tests__/**/*.d.ts
+vitest.config.js
+vitest.config.d.ts
+tsup.config.js
+tsup.config.d.ts
