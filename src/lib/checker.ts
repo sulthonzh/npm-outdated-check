@@ -75,8 +75,12 @@ export class OutdatedChecker {
 
   private async getLatestVersion(packageName: string): Promise<string | null> {
     try {
-      const url = `${this.config.registry}/${packageName}`;
-      const response = await fetch(url);
+      // Use the abbreviated registry endpoint to avoid downloading
+      // full metadata for packages with many versions (e.g. lodash is 5MB+)
+      const url = `${this.config.registry}/${packageName}?cached=true`;
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' },
+      });
 
       if (!response.ok) {
         return null;
@@ -90,6 +94,10 @@ export class OutdatedChecker {
   }
 
   private calculateVersionDiff(pkg: PackageInfo): VersionDiff {
+    // coerce() extracts a semver from range specs like ^1.2.3, ~1.2.3, >=1.2.3
+    // This gives us the floor version for comparison against latest.
+    // Note: for complex ranges like ">=16 || >=18", coerce picks the first match,
+    // which may not reflect the actual installed version.
     const current = coerce(pkg.current);
     const latest = parse(pkg.latest);
 
