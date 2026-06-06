@@ -6,6 +6,10 @@ export class Formatter {
         this.config = config;
     }
     format(result) {
+        // When onlyViolations is set, skip the "all clear" message for clean runs
+        if (result.violations.length === 0 && this.config.onlyViolations) {
+            return '';
+        }
         switch (this.config.format) {
             case 'json':
                 return this.formatJson(result);

@@ -81,4 +81,40 @@ describe('ConfigLoader', () => {
     expect(result.valid).toBe(false);
     expect(result.errors).toContain('format must be text, json, or table');
   });
+
+  it('should reject NaN threshold values', () => {
+    const nanConfig = {
+      maxMajor: NaN,
+      maxMinor: 2,
+      maxPatch: 5,
+      include: ['prod', 'dev'] as const,
+      exclude: [],
+      registry: 'https://registry.npmjs.org',
+      format: 'text' as const,
+      failOnAny: false,
+      verbose: false,
+    };
+
+    const result = ConfigLoader.validate(nanConfig);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('maxMajor must be a valid number');
+  });
+
+  it('should reject invalid registry URL', () => {
+    const badRegistry = {
+      maxMajor: 0,
+      maxMinor: 2,
+      maxPatch: 5,
+      include: ['prod', 'dev'] as const,
+      exclude: [],
+      registry: 'not-a-url',
+      format: 'text' as const,
+      failOnAny: false,
+      verbose: false,
+    };
+
+    const result = ConfigLoader.validate(badRegistry);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('registry must be a valid URL');
+  });
 });

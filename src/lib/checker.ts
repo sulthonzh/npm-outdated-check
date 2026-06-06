@@ -75,11 +75,12 @@ export class OutdatedChecker {
 
   private async getLatestVersion(packageName: string): Promise<string | null> {
     try {
-      // Use the abbreviated registry endpoint to avoid downloading
-      // full metadata for packages with many versions (e.g. lodash is 5MB+)
-      const url = `${this.config.registry}/${packageName}?cached=true`;
+      // Fetch only dist-tags from the registry — no query param tricks,
+      // the Accept header alone is enough to get abbreviated metadata.
+      const url = `${this.config.registry}/${packageName}`;
       const response = await fetch(url, {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/vnd.npm.install-v1+json' },
+        signal: AbortSignal.timeout(30_000), // prevent CI hangs
       });
 
       if (!response.ok) {
