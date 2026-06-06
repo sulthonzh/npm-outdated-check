@@ -45,6 +45,12 @@ export class ConfigLoader {
   static validate(config: Config): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
+    // Guard against NaN from parseInt on CLI input — NaN passes < 0 but
+    // breaks every comparison in calculateVersionDiff, silently disabling checks.
+    if (!Number.isFinite(config.maxMajor)) errors.push('maxMajor must be a valid number');
+    if (!Number.isFinite(config.maxMinor)) errors.push('maxMinor must be a valid number');
+    if (!Number.isFinite(config.maxPatch)) errors.push('maxPatch must be a valid number');
+
     if (config.maxMajor < 0) errors.push('maxMajor must be >= 0');
     if (config.maxMinor < 0) errors.push('maxMinor must be >= 0');
     if (config.maxPatch < 0) errors.push('maxPatch must be >= 0');
@@ -53,6 +59,12 @@ export class ConfigLoader {
 
     if (!['text', 'json', 'table'].includes(config.format)) {
       errors.push('format must be text, json, or table');
+    }
+
+    try {
+      new URL(config.registry);
+    } catch {
+      errors.push('registry must be a valid URL');
     }
 
     return { valid: errors.length === 0, errors };

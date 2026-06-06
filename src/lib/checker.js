@@ -63,8 +63,13 @@ export class OutdatedChecker {
     }
     async getLatestVersion(packageName) {
         try {
+            // Fetch only dist-tags from the registry — no query param tricks,
+            // the Accept header alone is enough to get abbreviated metadata.
             const url = `${this.config.registry}/${packageName}`;
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: { Accept: 'application/vnd.npm.install-v1+json' },
+                signal: AbortSignal.timeout(30_000), // prevent CI hangs
+            });
             if (!response.ok) {
                 return null;
             }
@@ -76,6 +81,10 @@ export class OutdatedChecker {
         }
     }
     calculateVersionDiff(pkg) {
+        // coerce() extracts a semver from range specs like ^1.2.3, ~1.2.3, >=1.2.3
+        // This gives us the floor version for comparison against latest.
+        // Note: for complex ranges like ">=16 || >=18", coerce picks the first match,
+        // which may not reflect the actual installed version.
         const current = coerce(pkg.current);
         const latest = parse(pkg.latest);
         if (!current || !latest) {
