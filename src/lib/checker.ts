@@ -40,17 +40,19 @@ export class OutdatedChecker {
     const deps = packageJson.dependencies || {};
     const devDeps = packageJson.devDependencies || {};
 
-    for (const [name, version] of Object.entries(deps)) {
-      const latest = await this.getLatestVersion(name);
-      if (latest) {
-        packages.push({
-          name,
-          current: version,
-          latest,
-          wanted: version,
-          type: 'prod',
-          direct: true,
-        });
+    if (this.config.include.includes('prod')) {
+      for (const [name, version] of Object.entries(deps)) {
+        const latest = await this.getLatestVersion(name);
+        if (latest) {
+          packages.push({
+            name,
+            current: version,
+            latest,
+            wanted: version,
+            type: 'prod',
+            direct: true,
+          });
+        }
       }
     }
 
@@ -77,9 +79,12 @@ export class OutdatedChecker {
     try {
       // Use the abbreviated registry endpoint to avoid downloading
       // full metadata for packages with many versions (e.g. lodash is 5MB+)
-      const url = `${this.config.registry}/${packageName}?cached=true`;
+      // Encode scoped package names: @types/node → %40types%2Fnode
+      const encoded = encodeURIComponent(packageName);
+      const url = `${this.config.registry}/${encoded}`;
       const response = await fetch(url, {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/vnd.npm.install-v1+json' },
+        signal: AbortSignal.timeout(30_000),
       });
 
       if (!response.ok) {
@@ -148,7 +153,7 @@ export class OutdatedChecker {
 
   getExitCode(violations: VersionDiff[]): ExitCode {
     if (violations.length > 0) {
-      return 1;
+      return this.config.failOnAny ? 1 : 0;
     }
     return 0;
   }

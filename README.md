@@ -97,6 +97,7 @@ Create `.npm-outdated-check.json` in your project root:
 | `--config <path>` | - | Path to config file |
 | `--path <dir>` | cwd | Project directory |
 | `--verbose` | false | Verbose output |
+| `--fail-on-any` | true | Exit with code 1 if any violations found (set to false for report-only mode) |
 
 ## Exit Codes
 

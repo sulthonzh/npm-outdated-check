@@ -10,7 +10,7 @@ const DEFAULT_CONFIG: Config = {
   exclude: [],
   registry: 'https://registry.npmjs.org',
   format: 'text',
-  failOnAny: false,
+  failOnAny: true,
   verbose: false,
   onlyViolations: false,
 };
