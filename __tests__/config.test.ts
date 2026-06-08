@@ -28,7 +28,7 @@ describe('ConfigLoader', () => {
     expect(merged.maxPatch).toBe(5);
   });
 
-  it('should validate config', () => {
+  it('should validate config', async () => {
     const validConfig = {
       maxMajor: 0,
       maxMinor: 2,
@@ -37,7 +37,7 @@ describe('ConfigLoader', () => {
       exclude: [],
       registry: 'https://registry.npmjs.org',
       format: 'text' as const,
-      failOnAny: false,
+      failOnAny: true,
       verbose: false,
       onlyViolations: false,
     };
@@ -47,7 +47,8 @@ describe('ConfigLoader', () => {
     expect(result.errors).toEqual([]);
   });
 
-  it('should reject invalid max values', () => {
+  it('should reject invalid max values', async () => {
+    // Test validation with negative maxMajor
     const invalidConfig = {
       maxMajor: -1,
       maxMinor: 2,
@@ -56,7 +57,7 @@ describe('ConfigLoader', () => {
       exclude: [],
       registry: 'https://registry.npmjs.org',
       format: 'text' as const,
-      failOnAny: false,
+      failOnAny: true,
       verbose: false,
       onlyViolations: false,
     };
@@ -66,7 +67,7 @@ describe('ConfigLoader', () => {
     expect(result.errors).toContain('maxMajor must be >= 0');
   });
 
-  it('should reject invalid format', () => {
+  it('should reject invalid format', async () => {
     const invalidConfig = {
       maxMajor: 0,
       maxMinor: 2,
@@ -75,7 +76,7 @@ describe('ConfigLoader', () => {
       exclude: [],
       registry: 'https://registry.npmjs.org',
       format: 'invalid' as any,
-      failOnAny: false,
+      failOnAny: true,
       verbose: false,
       onlyViolations: false,
     };
