@@ -55,6 +55,18 @@ export class ConfigLoader {
       errors.push('format must be text, json, table, or markdown');
     }
 
+    // Validate registry URL format
+    try {
+      new URL(config.registry);
+    } catch {
+      errors.push(`Invalid registry URL: ${config.registry}`);
+    }
+
+    // Validate registry is HTTPS for security
+    if (!config.registry.startsWith('https://') && !config.registry.startsWith('http://localhost')) {
+      errors.push('Registry URL must use HTTPS for security (localhost allowed for testing)');
+    }
+
     return { valid: errors.length === 0, errors };
   }
 }

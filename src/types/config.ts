@@ -11,6 +11,7 @@ export interface VersionDiff {
   name: string;
   current: string;
   latest: string;
+  wanted: string;
   type: 'prod' | 'dev';
   majorDiff: number;
   minorDiff: number;
