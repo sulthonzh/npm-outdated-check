@@ -39,6 +39,7 @@ describe('ConfigLoader', () => {
       format: 'text' as const,
       failOnAny: false,
       verbose: false,
+      onlyViolations: false,
     };
 
     const result = ConfigLoader.validate(validConfig);
@@ -57,6 +58,7 @@ describe('ConfigLoader', () => {
       format: 'text' as const,
       failOnAny: false,
       verbose: false,
+      onlyViolations: false,
     };
 
     const result = ConfigLoader.validate(invalidConfig);
@@ -75,10 +77,29 @@ describe('ConfigLoader', () => {
       format: 'invalid' as any,
       failOnAny: false,
       verbose: false,
+      onlyViolations: false,
     };
 
     const result = ConfigLoader.validate(invalidConfig);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContain('format must be text, json, or table');
+    expect(result.errors).toContain('format must be text, json, table, or markdown');
+  });
+
+  it('should accept markdown as valid format', () => {
+    const mdConfig = {
+      maxMajor: 0,
+      maxMinor: 2,
+      maxPatch: 5,
+      include: ['prod', 'dev'] as const,
+      exclude: [],
+      registry: 'https://registry.npmjs.org',
+      format: 'markdown' as const,
+      failOnAny: false,
+      verbose: false,
+      onlyViolations: false,
+    };
+
+    const result = ConfigLoader.validate(mdConfig);
+    expect(result.valid).toBe(true);
   });
 });

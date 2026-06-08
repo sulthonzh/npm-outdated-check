@@ -51,8 +51,8 @@ export class ConfigLoader {
 
     if (config.include.length === 0) errors.push('include must have at least one type');
 
-    if (!['text', 'json', 'table'].includes(config.format)) {
-      errors.push('format must be text, json, or table');
+    if (!['text', 'json', 'table', 'markdown'].includes(config.format)) {
+      errors.push('format must be text, json, table, or markdown');
     }
 
     return { valid: errors.length === 0, errors };
