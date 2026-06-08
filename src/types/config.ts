@@ -25,7 +25,7 @@ export interface Config {
   include: ('prod' | 'dev')[];
   exclude: string[];
   registry: string;
-  format: 'text' | 'json' | 'table';
+  format: 'text' | 'json' | 'table' | 'markdown';
   failOnAny: boolean;
   verbose: boolean;
   onlyViolations: boolean;

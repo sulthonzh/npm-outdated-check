@@ -11,6 +11,8 @@ export class Formatter {
         return this.formatJson(result);
       case 'table':
         return this.formatTable(result);
+      case 'markdown':
+        return this.formatMarkdown(result);
       default:
         return this.formatText(result);
     }
@@ -82,6 +84,26 @@ export class Formatter {
     }
 
     output += chalk.yellow(`Thresholds: major=${this.config.maxMajor}, minor=${this.config.maxMinor}, patch=${this.config.maxPatch}`);
+
+    return output;
+  }
+
+  private formatMarkdown(result: CheckResult): string {
+    if (result.violations.length === 0) {
+      return `## Dependency Check\n\n✅ All **${result.totalChecked}** dependencies are within threshold limits.`;
+    }
+
+    let output = `## Dependency Check\n\n`;
+    output += `❌ **${result.violations.length} violation(s)** found out of ${result.totalChecked} dependencies.\n\n`;
+    output += `| Package | Current | Latest | Type | Major | Minor | Patch |\n`;
+    output += `|---------|---------|--------|------|-------|-------|-------|\n`;
+
+    for (const v of result.violations) {
+      const mark = (val: number, limit: number) => val > limit ? `**${val}** ⚠️` : `${val}`;
+      output += `| ${v.name} | \`${v.current}\` | \`${v.latest}\` | ${v.type} | ${mark(v.majorDiff, this.config.maxMajor)} | ${mark(v.minorDiff, this.config.maxMinor)} | ${mark(v.patchDiff, this.config.maxPatch)} |\n`;
+    }
+
+    output += `\n_Thresholds: major=${this.config.maxMajor}, minor=${this.config.maxMinor}, patch=${this.config.maxPatch}_\n`;
 
     return output;
   }

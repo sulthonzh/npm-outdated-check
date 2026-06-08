@@ -17,7 +17,7 @@ program
   .option('--dep <types>', 'Include dependencies (prod,dev,both)', 'both')
   .option('--exclude <packages>', 'Exclude packages (comma-separated)', '')
   .option('--registry <url>', 'npm registry URL', 'https://registry.npmjs.org')
-  .option('--format <fmt>', 'Output format (text,json,table)', 'text')
+  .option('--format <fmt>', 'Output format (text,json,table,markdown)', 'text')
   .option('--config <path>', 'Path to config file')
   .option('--verbose', 'Verbose output')
   .option('--fail-on-any', 'Fail if any violations found', false)

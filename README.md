@@ -67,6 +67,27 @@ npm-outdated-check --dep prod
 npm-outdated-check --format json
 ```
 
+### Markdown output (great for PR comments)
+
+```bash
+npm-outdated-check --format markdown
+```
+
+Output looks like:
+
+```markdown
+## Dependency Check
+
+❌ **2 violation(s)** found out of 15 dependencies.
+
+| Package | Current | Latest | Type | Major | Minor | Patch |
+|---------|---------|--------|------|-------|-------|-------|
+| react | `^18.0.0` | `19.0.0` | prod | **1** ⚠️ | 0 | 0 |
+| lodash | `^4.17.0` | `4.17.21` | prod | 0 | 0 | **21** ⚠️ |
+
+_Thresholds: major=0, minor=2, patch=5_
+```
+
 ### Config file
 
 Create `.npm-outdated-check.json` in your project root:
@@ -93,7 +114,7 @@ Create `.npm-outdated-check.json` in your project root:
 | `--dep <types>` | both | Include dependencies (prod, dev, both) |
 | `--exclude <pkgs>` | - | Exclude packages (comma-separated) |
 | `--registry <url>` | https://registry.npmjs.org | npm registry URL |
-| `--format <fmt>` | text | Output format (text, table, json) |
+| `--format <fmt>` | text | Output format (text, table, json, markdown) |
 | `--config <path>` | - | Path to config file |
 | `--path <dir>` | cwd | Project directory |
 | `--verbose` | false | Verbose output |
