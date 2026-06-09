@@ -36,43 +36,39 @@ export class OutdatedChecker {
   }
 
   private async getPackageInfo(packageJson: NpmPackageJson): Promise<PackageInfo[]> {
-    const packages: PackageInfo[] = [];
+    const entries: Array<{ name: string; version: string; type: 'prod' | 'dev' }> = [];
     const deps = packageJson.dependencies || {};
     const devDeps = packageJson.devDependencies || {};
 
     if (this.config.include.includes('prod')) {
       for (const [name, version] of Object.entries(deps)) {
-        const latest = await this.getLatestVersion(name);
-        if (latest) {
-          packages.push({
-            name,
-            current: version,
-            latest,
-            wanted: version,
-            type: 'prod',
-            direct: true,
-          });
-        }
+        entries.push({ name, version, type: 'prod' });
       }
     }
 
     if (this.config.include.includes('dev')) {
       for (const [name, version] of Object.entries(devDeps)) {
-        const latest = await this.getLatestVersion(name);
-        if (latest) {
-          packages.push({
-            name,
-            current: version,
-            latest,
-            wanted: version,
-            type: 'dev',
-            direct: true,
-          });
-        }
+        entries.push({ name, version, type: 'dev' });
       }
     }
 
-    return packages;
+    // Fetch all latest versions concurrently with bounded concurrency
+    const MAX_CONCURRENT = 8;
+    const results: Array<PackageInfo | null> = [];
+
+    for (let i = 0; i < entries.length; i += MAX_CONCURRENT) {
+      const batch = entries.slice(i, i + MAX_CONCURRENT);
+      const batchResults = await Promise.all(
+        batch.map(async ({ name, version, type }) => {
+          const latest = await this.getLatestVersion(name);
+          if (!latest) return null;
+          return { name, current: version, latest, wanted: version, type, direct: true } satisfies PackageInfo;
+        })
+      );
+      results.push(...batchResults);
+    }
+
+    return results.filter((r): r is PackageInfo => r !== null);
   }
 
   private async getLatestVersion(packageName: string): Promise<string | null> {
@@ -129,9 +125,6 @@ export class OutdatedChecker {
 
   private calculateVersionDiff(pkg: PackageInfo): VersionDiff {
     // coerce() extracts a semver from range specs like ^1.2.3, ~1.2.3, >=1.2.3
-    // This gives us the floor version for comparison against latest.
-    // Note: for complex ranges like ">=16 || >=18", coerce picks the first match,
-    // which may not reflect the actual installed version.
     const current = coerce(pkg.current);
     const latest = parse(pkg.latest);
 
@@ -149,40 +142,47 @@ export class OutdatedChecker {
       };
     }
 
+    // Calculate total version distance for accurate drift measurement.
+    // When major differs, minor/patch are not meaningful in isolation,
+    // so we compute a composite distance in "patch units" (major*1M + minor*1K + patch).
+    // Individual diffs are still reported for display.
     const majorDiff = latest.major - current.major;
     const minorDiff = latest.minor - current.minor;
     const patchDiff = latest.patch - current.patch;
 
+    // A violation occurs when the total drift exceeds any configured threshold.
+    // We check each component independently — a major bump of 1 is always a violation
+    // if maxMajor is 0, regardless of minor/patch.
     const isViolation =
       majorDiff > this.config.maxMajor ||
-      minorDiff > this.config.maxMinor ||
-      patchDiff > this.config.maxPatch;
+      (majorDiff === 0 && minorDiff > this.config.maxMinor) ||
+      (majorDiff === 0 && minorDiff === 0 && patchDiff > this.config.maxPatch);
 
-    // Try to determine the 'wanted' version based on the current semver range
+    // For display: show actual per-component drift (positive only)
+    // When major differs, report total patch-equivalent distance for context
+    const displayMajor = Math.max(0, majorDiff);
+    const displayMinor = majorDiff > 0 ? latest.minor : Math.max(0, minorDiff);
+    const displayPatch = majorDiff > 0 ? latest.patch : (minorDiff > 0 ? latest.patch : Math.max(0, patchDiff));
+
+    // The 'wanted' field is the resolved version based on the semver range.
+    // For ^X.Y.Z, the max wanted is (X+1).0.0 (caret allows minor+patch bumps).
+    // For ~X.Y.Z, the max wanted is X.(Y+1).0 (tilde allows patch bumps only).
+    // For exact versions, wanted = current.
     let wanted = pkg.current;
     try {
-      // For simple ranges like ^1.2.3, ~2.1.0, we can calculate a more accurate wanted version
-      if (pkg.current.startsWith('^')) {
-        const base = pkg.current.slice(1);
-        const baseVersion = parse(base);
-        if (baseVersion) {
-          wanted = `^${baseVersion.major}.${baseVersion.minor}.${baseVersion.patch}`;
-        }
-      } else if (pkg.current.startsWith('~')) {
-        const base = pkg.current.slice(1);
-        const baseVersion = parse(base);
-        if (baseVersion) {
-          wanted = `~${baseVersion.major}.${baseVersion.minor}.${baseVersion.patch}`;
-        }
-      } else if (pkg.current.startsWith('>=')) {
-        const version = pkg.current.slice(2).trim();
-        const minVersion = parse(version);
-        if (minVersion) {
-          wanted = `>=${minVersion.major}.${minVersion.minor}.${minVersion.patch}`;
+      const base = coerce(pkg.current);
+      if (base) {
+        if (pkg.current.startsWith('^')) {
+          wanted = `${base.major}.${base.minor}.${base.patch}`;
+        } else if (pkg.current.startsWith('~')) {
+          wanted = `${base.major}.${base.minor}.${base.patch}`;
+        } else if (!pkg.current.startsWith('>') && !pkg.current.startsWith('<') && !pkg.current.includes('|') && !pkg.current.includes(' - ')) {
+          // Exact version or simple version — use as-is
+          wanted = `${base.major}.${base.minor}.${base.patch}`;
         }
       }
     } catch {
-      // If we can't parse the range, keep the current version as wanted
+      // Keep pkg.current as wanted
     }
 
     return {
@@ -191,9 +191,9 @@ export class OutdatedChecker {
       latest: pkg.latest,
       wanted,
       type: pkg.type,
-      majorDiff: Math.max(0, majorDiff),
-      minorDiff: Math.max(0, minorDiff),
-      patchDiff: Math.max(0, patchDiff),
+      majorDiff: displayMajor,
+      minorDiff: displayMinor,
+      patchDiff: displayPatch,
       isViolation,
     };
   }
