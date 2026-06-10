@@ -13,6 +13,7 @@ const DEFAULT_CONFIG: Config = {
   failOnAny: true,
   verbose: false,
   onlyViolations: false,
+  transitive: true,
 };
 
 export class ConfigLoader {

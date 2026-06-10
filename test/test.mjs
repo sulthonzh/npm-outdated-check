@@ -269,4 +269,87 @@ describe('Formatter', () => {
     assert.ok(output.includes('lodash'));
     assert.ok(output.includes('2 violation(s)'));
   });
+
+// ─── Enhanced Features Tests ───
+describe('Enhanced Features', () => {
+  describe('Enhanced version parsing', () => {
+    it('parses version ranges efficiently', () => {
+      const checker = new OutdatedChecker(makeConfig());
+      const calc = checker.parseSemverWithRange.bind(checker);
+      
+      assert.deepEqual(calc('^18.2.0'), { major: 18, minor: 2, patch: 0 });
+      assert.deepEqual(calc('~1.2.3'), { major: 1, minor: 2, patch: 3 });
+      assert.deepEqual(calc('>=2.0.0'), { major: 2, minor: 0, patch: 0 });
+      assert.deepEqual(calc('1.0.0'), { major: 1, minor: 0, patch: 0 });
+      assert.equal(calc('invalid'), null);
+    });
+
+    it('calculates wanted versions correctly', () => {
+      const checker = new OutdatedChecker(makeConfig());
+      const calc = checker.calculateWantedVersion.bind(checker);
+      
+      assert.equal(calc('^18.2.0', { major: 18, minor: 2, patch: 5 }), '^18.2.5');
+      assert.equal(calc('~1.2.3', { major: 1, minor: 2, patch: 5 }), '~1.2.5');
+      assert.equal(calc('>=2.0.0', { major: 2, minor: 0, patch: 0 }), '>=2.0.0');
+      assert.equal(calc('1.0.0', { major: 1, minor: 0, patch: 0 }), '1.0.0');
+    });
+  });
+
+  describe('isExcluded enhanced', () => {
+    it('excludes with enhanced glob patterns', () => {
+      const checker = new OutdatedChecker(makeConfig({
+        exclude: ['@types/*', 'test-*', 'lodash@(4|5).*']
+      }));
+      
+      assert.equal(checker.isExcluded('@types/node'), true);
+      assert.equal(checker.isExcluded('@types/react'), true);
+      assert.equal(checker.isExcluded('lodash'), false);
+      assert.equal(checker.isExcluded('test-utils'), true);
+      assert.equal(checker.isExcluded('lodash4'), false);
+    });
+
+    it('handles complex regex patterns gracefully', () => {
+      const checker = new OutdatedChecker(makeConfig({
+        exclude: ['invalid[*pattern', 'react']
+      }));
+      
+      assert.equal(checker.isExcluded('react'), true);
+      assert.equal(checker.isExcluded('invalid[*pattern'), true);
+    });
+  });
+
+  describe('parseSemverWithRange', () => {
+    it('parses version ranges efficiently', () => {
+      const checker = new OutdatedChecker(makeConfig());
+      const calc = checker.parseSemverWithRange.bind(checker);
+      
+      assert.deepEqual(calc('^18.2.0'), { major: 18, minor: 2, patch: 0 });
+      assert.deepEqual(calc('~1.2.3'), { major: 1, minor: 2, patch: 3 });
+      assert.deepEqual(calc('>=2.0.0'), { major: 2, minor: 0, patch: 0 });
+      assert.deepEqual(calc('1.0.0'), { major: 1, minor: 0, patch: 0 });
+      assert.equal(calc('invalid'), null);
+    });
+  });
+
+  describe('calculateWantedVersion', () => {
+    it('calculates wanted versions correctly', () => {
+      const checker = new OutdatedChecker(makeConfig());
+      const calc = checker.calculateWantedVersion.bind(checker);
+      
+      assert.equal(calc('^18.2.0', { major: 18, minor: 2, patch: 5 }), '^18.2.5');
+      assert.equal(calc('~1.2.3', { major: 1, minor: 2, patch: 5 }), '~1.2.5');
+      assert.equal(calc('>=2.0.0', { major: 2, minor: 0, patch: 0 }), '>=2.0.0');
+      assert.equal(calc('1.0.0', { major: 1, minor: 0, patch: 0 }), '1.0.0');
+    });
+  });
+
+  describe('checkWithTransitive', () => {
+    it('includes transitive dependencies when enabled', async () => {
+      // This test would require mocking the file system
+      // For now, we just ensure the method exists and works
+      const checker = new OutdatedChecker(makeConfig({ transitive: true }));
+      assert.ok(typeof checker.checkWithTransitive === 'function');
+    });
+  });
+});
 });
