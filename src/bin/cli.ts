@@ -23,6 +23,8 @@ program
   .option('--fail-on-any', 'Fail if any violations found', false)
   .option('--transitive', 'Include transitive dependencies', false)
   .option('--path <dir>', 'Project directory (default: cwd)')
+  .option('--cache-ttl <ms>', 'Cache time-to-live in milliseconds (default: 3600000)', '3600000')
+  .option('--disable-cache', 'Disable caching completely', false)
   .parse();
 
 const options = program.opts();
@@ -45,6 +47,7 @@ async function main() {
       verbose: options.verbose,
       failOnAny: options.failOnAny,
       transitive: options.transitive,
+      cacheTTL: options.disableCache ? 0 : parseInt(options.cacheTtl, 10),
     };
 
     config = ConfigLoader.mergeWithCli(config, cliOptions);

@@ -27,6 +27,7 @@ const DEFAULT_CONFIG: Config = {
   verbose: false,
   onlyViolations: false,
   transitive: true,
+  cacheTTL: 3600000, // 1 hour default cache
 };
 
 export class ConfigLoader {
@@ -130,6 +131,8 @@ export class ConfigLoader {
         merged.maxMinor = value;
       } else if (key === 'maxPatch' && typeof value === 'number') {
         merged.maxPatch = value;
+      } else if (key === 'cacheTTL' && typeof value === 'number') {
+        merged.cacheTTL = value;
       }
     }
     
@@ -196,6 +199,11 @@ export class ConfigLoader {
       }
     } catch {
       errors.push(`Invalid registry URL: ${config.registry}`);
+    }
+
+    // Validate cacheTTL
+    if (config.cacheTTL !== undefined && (typeof config.cacheTTL !== 'number' || config.cacheTTL < 0)) {
+      errors.push('cacheTTL must be a positive number or undefined');
     }
 
     return { valid: errors.length === 0, errors };

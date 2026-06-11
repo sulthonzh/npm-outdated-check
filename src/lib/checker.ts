@@ -1,4 +1,4 @@
-import { readFile } from 'fs/promises';
+import { readFile, writeFile, access, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { coerce, parse } from 'semver';
 import type { PackageInfo, VersionDiff, Config, NpmPackageJson, ExitCode } from '../types/config.js';
@@ -6,10 +6,68 @@ import type { PackageInfo, VersionDiff, Config, NpmPackageJson, ExitCode } from 
 export class OutdatedChecker {
   private config: Config;
   private basePath: string;
+  private cacheDir: string;
+  private cacheFile: string;
+  private cache: Map<string, { version: string; timestamp: number }>;;
 
   constructor(config: Config, basePath: string = process.cwd()) {
     this.config = config;
     this.basePath = basePath;
+    this.cacheDir = join(basePath, '.npm-outdated-cache');
+    this.cacheFile = join(this.cacheDir, 'versions.json');
+    this.cache = new Map();
+    this.loadCache();
+  }
+
+  private async loadCache(): Promise<void> {
+    try {
+      await access(this.cacheFile);
+      const content = await readFile(this.cacheFile, 'utf-8');
+      const cacheData = JSON.parse(content);
+      // Convert object back to Map
+      for (const [key, value] of Object.entries(cacheData.versions || {})) {
+        this.cache.set(key, value as { version: string; timestamp: number });
+      }
+    } catch {
+      // Cache doesn't exist, create it
+      await mkdir(this.cacheDir, { recursive: true });
+      await this.saveCache();
+    }
+  }
+
+  private async saveCache(): Promise<void> {
+    try {
+      const cacheData = {
+        versions: Object.fromEntries(this.cache),
+        timestamp: Date.now(),
+        maxAge: this.config.cacheTTL || 3600000 // 1 hour default
+      };
+      await writeFile(this.cacheFile, JSON.stringify(cacheData, null, 2));
+    } catch {
+      // Don't fail if cache save fails
+    }
+  }
+
+  private getCachedVersion(packageName: string): string | null {
+    const cached = this.cache.get(packageName);
+    if (cached) {
+      const now = Date.now();
+      const cacheAge = now - cached.timestamp;
+      const maxAge = this.config.cacheTTL || 3600000; // 1 hour default
+
+      if (cacheAge < maxAge) {
+        return cached.version;
+      }
+    }
+    return null;
+  }
+
+  private async cacheVersion(packageName: string, version: string): Promise<void> {
+    this.cache.set(packageName, {
+      version,
+      timestamp: Date.now()
+    });
+    await this.saveCache();
   }
 
   async check(): Promise<{ violations: VersionDiff[]; totalChecked: number }> {
@@ -65,7 +123,7 @@ export class OutdatedChecker {
   private async getAllPackageInfoWithTransitive(packageJson: NpmPackageJson): Promise<PackageInfo[]> {
     const packages: PackageInfo[] = [];
     const seen = new Set<string>();
-    
+
     // Start with direct dependencies
     const directPackages = await this.getPackageInfo(packageJson);
     for (const pkg of directPackages) {
@@ -74,7 +132,7 @@ export class OutdatedChecker {
         packages.push(pkg);
       }
     }
-    
+
     // If we want to include transitive dependencies, read package-lock.json
     if (this.config.transitive !== false) {
       const lockJson = await this.readPackageLockJson();
@@ -83,13 +141,13 @@ export class OutdatedChecker {
         packages.push(...transitivePackages);
       }
     }
-    
+
     return packages;
   }
 
   private async getTransitivePackages(lockJson: { versions?: Record<string, { version?: string }>; dependencies?: Record<string, string | { version?: string }>; devDependencies?: Record<string, string | { version?: string }>; [key: string]: unknown }, seen: Set<string>): Promise<PackageInfo[]> {
     const packages: PackageInfo[] = [];
-    
+
     // Validate package-lock.json structure for security
     if (!lockJson || typeof lockJson !== 'object') {
       if (this.config.verbose) {
@@ -97,19 +155,19 @@ export class OutdatedChecker {
       }
       return [];
     }
-    
+
     // Validate dependencies structure
     const validateDependencies = (dependencies: Record<string, string | { version?: string }>, type: 'prod' | 'dev') => {
       if (!dependencies || typeof dependencies !== 'object') {
         return [];
       }
-      
+
       const validPackages: PackageInfo[] = [];
-      
+
       for (const [name, info] of Object.entries(dependencies)) {
         // Skip if already processed
         if (seen.has(name)) continue;
-        
+
         // Validate package name for security
         if (!this.validatePackageName(name)) {
           if (this.config.verbose) {
@@ -117,7 +175,7 @@ export class OutdatedChecker {
           }
           continue;
         }
-        
+
         // Extract and validate version
         let version: string;
         if (typeof info === 'string') {
@@ -130,7 +188,7 @@ export class OutdatedChecker {
           }
           continue;
         }
-        
+
         // Validate version format
         if (!this.validateVersion(version)) {
           if (this.config.verbose) {
@@ -138,12 +196,12 @@ export class OutdatedChecker {
           }
           continue;
         }
-        
+
         seen.add(name);
-        
+
         // Get latest version from package-lock.json if available, otherwise use current
         const latest = lockJson?.versions?.[name]?.version || version;
-        
+
         validPackages.push({
           name,
           current: version,
@@ -153,10 +211,10 @@ export class OutdatedChecker {
           direct: false,
         });
       }
-      
+
       return validPackages;
     };
-    
+
     // Process dependencies with validation
     if (lockJson.dependencies) {
       packages.push(...validateDependencies(lockJson.dependencies, 'prod'));
@@ -164,7 +222,7 @@ export class OutdatedChecker {
     if (lockJson.devDependencies) {
       packages.push(...validateDependencies(lockJson.devDependencies, 'dev'));
     }
-    
+
     return packages;
   }
 
@@ -174,7 +232,7 @@ export class OutdatedChecker {
     const devDeps = packageJson.devDependencies || {};
 
     const allPackages: [string, string, 'prod' | 'dev'][] = [];
-    
+
     if (this.config.include.includes('prod')) {
       for (const [name, version] of Object.entries(deps)) {
         if (this.validatePackageName(name) && this.validateVersion(version)) {
@@ -197,7 +255,7 @@ export class OutdatedChecker {
 
     // Fetch latest versions in parallel for better performance
     const latestVersions = await this.fetchLatestVersionsConcurrent(allPackages.map(([name]) => name));
-    
+
     for (const [name, version, type] of allPackages) {
       const latest = latestVersions.get(name);
       if (latest) {
@@ -228,7 +286,7 @@ export class OutdatedChecker {
           }
           return null;
         }
-        
+
         // Exponential backoff
         const delay = Math.pow(2, attempt - 1) * 1000;
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -238,6 +296,15 @@ export class OutdatedChecker {
   }
 
   private async fetchLatestVersionOnce(packageName: string): Promise<string | null> {
+    // First check cache
+    const cached = this.getCachedVersion(packageName);
+    if (cached) {
+      if (this.config.verbose) {
+        console.log(`🎯 Using cached version for ${packageName}: ${cached}`);
+      }
+      return cached;
+    }
+
     // Validate package name before making request
     if (!this.validatePackageName(packageName)) {
       if (this.config.verbose) {
@@ -258,10 +325,10 @@ export class OutdatedChecker {
     // Encode scoped package names: @types/node → %40types%2Fnode
     const encoded = encodeURIComponent(packageName);
     const url = `${this.config.registry}/${encoded}`;
-    
+
     try {
       const response = await fetch(url, {
-        headers: { 
+        headers: {
           Accept: 'application/vnd.npm.install-v1+json',
           // Prevent sensitive header leakage
           'User-Agent': `npm-outdated-check/1.0.0`
@@ -279,11 +346,11 @@ export class OutdatedChecker {
 
       const data = await response.json() as { 'dist-tags': { latest?: string } };
       const latest = data['dist-tags']?.latest;
-      
+
       if (!latest) {
         throw new Error(`No latest version found for ${packageName}`);
       }
-      
+
       // Validate the returned version format
       if (!this.validateVersion(latest)) {
         if (this.config.verbose) {
@@ -291,7 +358,9 @@ export class OutdatedChecker {
         }
         return null;
       }
-      
+
+      // Cache the result
+      await this.cacheVersion(packageName, latest);
       return latest;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -305,6 +374,15 @@ export class OutdatedChecker {
     const results = new Map<string, string>();
     const failed = new Set<string>();
     
+    // Progress tracking
+    let totalProcessed = 0;
+    const startTime = Date.now();
+    
+    // Show progress for large projects
+    if (packageNames.length > 20 && this.config.verbose) {
+      console.log(`📦 Checking ${packageNames.length} packages...`);
+    }
+    
     // Process in batches to avoid overwhelming the registry
     const batchSize = 10;
     const batches = [];
@@ -314,7 +392,7 @@ export class OutdatedChecker {
     }
     
     for (const batch of batches) {
-      const promises = batch.map(async (name) => {
+      const batchPromises = batch.map(async (name) => {
         try {
           const latest = await this.fetchLatestVersionWithRetry(name, 2);
           if (latest) {
@@ -330,16 +408,35 @@ export class OutdatedChecker {
         }
       });
       
-      await Promise.allSettled(promises);
+      await Promise.allSettled(batchPromises);
+      totalProcessed += batch.length;
+      
+      // Show progress for large projects
+      if (packageNames.length > 20 && this.config.verbose && totalProcessed % 50 === 0) {
+        const elapsed = Date.now() - startTime;
+        const avgTimePerPackage = elapsed / totalProcessed;
+        const estimatedTotal = avgTimePerPackage * packageNames.length;
+        const remaining = estimatedTotal - elapsed;
+        
+        const progress = Math.round((totalProcessed / packageNames.length) * 100);
+        console.log(`📊 Progress: ${progress}% (${totalProcessed}/${packageNames.length}) - ~${Math.round(remaining/1000)}s remaining`);
+      }
       
       // Small delay between batches to be respectful to the registry
       if (batches.indexOf(batch) < batches.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
-    
+
+    // Show final progress
+    if (packageNames.length > 20 && this.config.verbose) {
+      const elapsed = Date.now() - startTime;
+      const successRate = Math.round(((packageNames.length - failed.size) / packageNames.length) * 100);
+      console.log(`✅ Completed in ${elapsed}ms - ${successRate}% success rate (${failed.size} failed)`);
+    }
+
     if (this.config.verbose && failed.size > 0) {
-      console.log(`Failed to fetch latest versions for ${failed.size} packages: ${Array.from(failed).slice(0, 5).join(', ')}${failed.size > 5 ? '...' : ''}`);
+      console.log(`❌ Failed to fetch latest versions for ${failed.size} packages: ${Array.from(failed).slice(0, 5).join(', ')}${failed.size > 5 ? '...' : ''}`);
     }
     
     return results;
@@ -401,13 +498,13 @@ export class OutdatedChecker {
         }
       }
     }
-    
+
     // For exact versions or complex ranges, use coerce
     const coerced = coerce(range);
     if (coerced) {
       return { major: coerced.major, minor: coerced.minor, patch: coerced.patch };
     }
-    
+
     return null;
   }
 
@@ -426,7 +523,7 @@ export class OutdatedChecker {
       }
       return `>=${parsedVersion.major}.${parsedVersion.minor}.${parsedVersion.patch}`;
     }
-    
+
     // For exact versions or complex ranges, return the original
     return currentRange;
   }
@@ -436,7 +533,7 @@ export class OutdatedChecker {
       if (!pattern.includes('*')) {
         return pattern === packageName;
       }
-      // Convert glob pattern to regex: @types/* → ^@types/[^/]+$ 
+      // Convert glob pattern to regex: @types/* → ^@types/[^/]+$
       const regexStr = '^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]+') + '$';
       return new RegExp(regexStr).test(packageName);
     });
@@ -453,7 +550,7 @@ export class OutdatedChecker {
     if (typeof name !== 'string' || name.length === 0 || name.length > 214) {
       return false;
     }
-    
+
     // Basic npm package name validation
     const nameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$/;
     if (name.startsWith('@')) {
@@ -462,15 +559,15 @@ export class OutdatedChecker {
       if (parts.length !== 2) return false;
       return parts.every(part => nameRegex.test(part));
     }
-    
+
     return nameRegex.test(name);
   }
-  
+
   private validateVersion(version: string): boolean {
     if (typeof version !== 'string' || version.length === 0 || version.length > 256) {
       return false;
     }
-    
+
     // Basic semver validation - allow ranges and special cases
     const versionRegex = /^[\^~><=]*\d+(\.\d+)*(\.[\w-]+)?$/;
     return versionRegex.test(version);

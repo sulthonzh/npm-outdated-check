@@ -1,0 +1,90 @@
+{
+  "versions": {
+    "lodash": {
+      "version": "4.18.1",
+      "timestamp": 1781205365503
+    },
+    "babel-core": {
+      "version": "6.26.3",
+      "timestamp": 1781205365527
+    },
+    "axios": {
+      "version": "1.17.0",
+      "timestamp": 1781205365532
+    },
+    "express": {
+      "version": "5.2.1",
+      "timestamp": 1781205365538
+    },
+    "prettier": {
+      "version": "3.8.4",
+      "timestamp": 1781205365548
+    },
+    "postcss": {
+      "version": "8.5.15",
+      "timestamp": 1781205365578
+    },
+    "eslint": {
+      "version": "10.4.1",
+      "timestamp": 1781205365603
+    },
+    "jest": {
+      "version": "30.4.2",
+      "timestamp": 1781205365611
+    },
+    "webpack": {
+      "version": "5.107.2",
+      "timestamp": 1781205365658
+    },
+    "react": {
+      "version": "19.2.7",
+      "timestamp": 1781205365761
+    },
+    "vitest": {
+      "version": "4.1.8",
+      "timestamp": 1781205365997
+    },
+    "cypress": {
+      "version": "15.17.0",
+      "timestamp": 1781205366118
+    },
+    "angular": {
+      "version": "1.8.3",
+      "timestamp": 1781205366164
+    },
+    "solid-js": {
+      "version": "1.9.13",
+      "timestamp": 1781205366270
+    },
+    "qwik": {
+      "version": "1.0.57",
+      "timestamp": 1781205366275
+    },
+    "vue": {
+      "version": "3.5.38",
+      "timestamp": 1781205366288
+    },
+    "svelte": {
+      "version": "5.56.3",
+      "timestamp": 1781205366346
+    },
+    "storybook": {
+      "version": "10.4.4",
+      "timestamp": 1781205366682
+    },
+    "tailwindcss": {
+      "version": "4.3.0",
+      "timestamp": 1781205366714
+    },
+    "next": {
+      "version": "16.2.9",
+      "timestamp": 1781205366966
+    },
+    "react-dom": {
+      "version": "19.2.7",
+      "timestamp": 1781205367400
+    }
+  },
+  "timestamp": 1781205367400,
+  "maxAge": 3600000
+}

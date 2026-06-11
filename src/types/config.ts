@@ -31,6 +31,7 @@ export interface Config {
   verbose: boolean;
   onlyViolations: boolean;
   transitive: boolean;
+  cacheTTL?: number; // Cache time-to-live in milliseconds
 }
 
 export interface CheckResult {
