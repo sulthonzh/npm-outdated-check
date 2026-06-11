@@ -52,7 +52,7 @@ export class OutdatedChecker {
     return JSON.parse(content);
   }
 
-  private async readPackageLockJson(): Promise<any> {
+  private async readPackageLockJson(): Promise<{ versions?: Record<string, { version?: string }>; dependencies?: Record<string, string | { version?: string }>; devDependencies?: Record<string, string | { version?: string }>; [key: string]: unknown } | null> {
     const lockPath = join(this.basePath, 'package-lock.json');
     try {
       const content = await readFile(lockPath, 'utf-8');
@@ -87,7 +87,7 @@ export class OutdatedChecker {
     return packages;
   }
 
-  private async getTransitivePackages(lockJson: any, seen: Set<string>): Promise<PackageInfo[]> {
+  private async getTransitivePackages(lockJson: { versions?: Record<string, { version?: string }>; dependencies?: Record<string, string | { version?: string }>; devDependencies?: Record<string, string | { version?: string }>; [key: string]: unknown }, seen: Set<string>): Promise<PackageInfo[]> {
     const packages: PackageInfo[] = [];
     
     // Validate package-lock.json structure for security
@@ -99,7 +99,7 @@ export class OutdatedChecker {
     }
     
     // Validate dependencies structure
-    const validateDependencies = (dependencies: any, type: 'prod' | 'dev') => {
+    const validateDependencies = (dependencies: Record<string, string | { version?: string }>, type: 'prod' | 'dev') => {
       if (!dependencies || typeof dependencies !== 'object') {
         return [];
       }
@@ -122,7 +122,7 @@ export class OutdatedChecker {
         let version: string;
         if (typeof info === 'string') {
           version = info;
-        } else if (info && typeof info === 'object' && typeof info.version === 'string') {
+        } else if (info && typeof info === 'object' && 'version' in info && typeof info.version === 'string') {
           version = info.version;
         } else {
           if (this.config.verbose) {

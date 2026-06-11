@@ -110,12 +110,12 @@ export class ConfigLoader {
     for (const [key, value] of Object.entries(userConfig)) {
       if (key === 'exclude' && Array.isArray(value)) {
         merged.exclude = value;
-      } else if (key === 'include' && Array.isArray(value)) {
-        merged.include = value;
+      } else if (key === 'include' && Array.isArray(value) && value.every(item => ['prod', 'dev'].includes(item as string))) {
+        merged.include = value as ('prod' | 'dev')[];
       } else if (key === 'registry' && typeof value === 'string') {
         merged.registry = value;
-      } else if (key === 'format' && typeof value === 'string') {
-        merged.format = value;
+      } else if (key === 'format' && typeof value === 'string' && ['text', 'json', 'table', 'markdown'].includes(value)) {
+        merged.format = value as 'text' | 'json' | 'table' | 'markdown';
       } else if (key === 'failOnAny' && typeof value === 'boolean') {
         merged.failOnAny = value;
       } else if (key === 'verbose' && typeof value === 'boolean') {
@@ -175,17 +175,24 @@ export class ConfigLoader {
         errors.push('Registry IP addresses are not allowed for security');
       }
       
-      // Validate protocol
+      // Validate protocol - allow localhost with any port for development/testing
       if (!config.registry.startsWith('https://') && 
           !config.registry.startsWith('http://localhost') &&
           !config.registry.startsWith('http://127.0.0.1') &&
           !config.registry.startsWith('http://[::1]')) {
-        errors.push('Registry URL must use HTTPS for security (localhost allowed for testing)');
+        // Special case: allow localhost with port (e.g., http://localhost:4873)
+        const localhostWithPortRegex = /^http:\/\/localhost(:\d+)?(\/.*)?$/;
+        if (!localhostWithPortRegex.test(config.registry)) {
+          errors.push('Registry URL must use HTTPS for security (localhost allowed for testing)');
+        }
       }
       
-      // Prevent non-standard ports for security
+      // Prevent non-standard ports for security, but allow localhost for development
       if (url.port && url.port !== '443' && url.port !== '80') {
-        errors.push(`Registry URL uses non-standard port: ${url.port}`);
+        // Allow localhost with any port for development/testing
+        if (!hostname.startsWith('localhost') && !hostname.startsWith('127.0.0.1') && !hostname.startsWith('[::1]')) {
+          errors.push(`Registry URL uses non-standard port: ${url.port}`);
+        }
       }
     } catch {
       errors.push(`Invalid registry URL: ${config.registry}`);
