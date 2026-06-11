@@ -90,17 +90,61 @@ export class OutdatedChecker {
   private async getTransitivePackages(lockJson: any, seen: Set<string>): Promise<PackageInfo[]> {
     const packages: PackageInfo[] = [];
     
-    const processDependencies = (dependencies: Record<string, any>, type: 'prod' | 'dev') => {
+    // Validate package-lock.json structure for security
+    if (!lockJson || typeof lockJson !== 'object') {
+      if (this.config.verbose) {
+        console.warn('Invalid package-lock.json structure');
+      }
+      return [];
+    }
+    
+    // Validate dependencies structure
+    const validateDependencies = (dependencies: any, type: 'prod' | 'dev') => {
+      if (!dependencies || typeof dependencies !== 'object') {
+        return [];
+      }
+      
+      const validPackages: PackageInfo[] = [];
+      
       for (const [name, info] of Object.entries(dependencies)) {
+        // Skip if already processed
         if (seen.has(name)) continue;
+        
+        // Validate package name for security
+        if (!this.validatePackageName(name)) {
+          if (this.config.verbose) {
+            console.warn(`Invalid package name in package-lock.json: ${name}`);
+          }
+          continue;
+        }
+        
+        // Extract and validate version
+        let version: string;
+        if (typeof info === 'string') {
+          version = info;
+        } else if (info && typeof info === 'object' && typeof info.version === 'string') {
+          version = info.version;
+        } else {
+          if (this.config.verbose) {
+            console.warn(`Invalid version format for ${name} in package-lock.json`);
+          }
+          continue;
+        }
+        
+        // Validate version format
+        if (!this.validateVersion(version)) {
+          if (this.config.verbose) {
+            console.warn(`Invalid version format for ${name}: ${version}`);
+          }
+          continue;
+        }
         
         seen.add(name);
         
-        // Extract version from package-lock.json structure
-        const version = info.version || info;
-        const latest = lockJson?.versions?.[name]?.dist?.tags?.latest || 'latest';
+        // Get latest version from package-lock.json if available, otherwise use current
+        const latest = lockJson?.versions?.[name]?.version || version;
         
-        packages.push({
+        validPackages.push({
           name,
           current: version,
           latest,
@@ -109,13 +153,16 @@ export class OutdatedChecker {
           direct: false,
         });
       }
+      
+      return validPackages;
     };
     
+    // Process dependencies with validation
     if (lockJson.dependencies) {
-      processDependencies(lockJson.dependencies, 'prod');
+      packages.push(...validateDependencies(lockJson.dependencies, 'prod'));
     }
     if (lockJson.devDependencies) {
-      processDependencies(lockJson.devDependencies, 'dev');
+      packages.push(...validateDependencies(lockJson.devDependencies, 'dev'));
     }
     
     return packages;
@@ -130,13 +177,21 @@ export class OutdatedChecker {
     
     if (this.config.include.includes('prod')) {
       for (const [name, version] of Object.entries(deps)) {
-        allPackages.push([name, version, 'prod']);
+        if (this.validatePackageName(name) && this.validateVersion(version)) {
+          allPackages.push([name, version, 'prod']);
+        } else if (this.config.verbose) {
+          console.warn(`Invalid package dependency: ${name}@${version}`);
+        }
       }
     }
 
     if (this.config.include.includes('dev')) {
       for (const [name, version] of Object.entries(devDeps)) {
-        allPackages.push([name, version, 'dev']);
+        if (this.validatePackageName(name) && this.validateVersion(version)) {
+          allPackages.push([name, version, 'dev']);
+        } else if (this.config.verbose) {
+          console.warn(`Invalid dev dependency: ${name}@${version}`);
+        }
       }
     }
 
@@ -183,6 +238,14 @@ export class OutdatedChecker {
   }
 
   private async fetchLatestVersionOnce(packageName: string): Promise<string | null> {
+    // Validate package name before making request
+    if (!this.validatePackageName(packageName)) {
+      if (this.config.verbose) {
+        console.warn(`Invalid package name: ${packageName}`);
+      }
+      return null;
+    }
+
     // Validate registry URL format
     try {
       new URL(this.config.registry);
@@ -196,27 +259,46 @@ export class OutdatedChecker {
     const encoded = encodeURIComponent(packageName);
     const url = `${this.config.registry}/${encoded}`;
     
-    const response = await fetch(url, {
-      headers: { Accept: 'application/vnd.npm.install-v1+json' },
-      signal: AbortSignal.timeout(30_000),
-    });
+    try {
+      const response = await fetch(url, {
+        headers: { 
+          Accept: 'application/vnd.npm.install-v1+json',
+          // Prevent sensitive header leakage
+          'User-Agent': `npm-outdated-check/1.0.0`
+        },
+        signal: AbortSignal.timeout(30_000),
+      });
 
-    if (!response.ok) {
-      if (response.status === 404) {
-        // Package not found - this is a common case for invalid package names
+      if (!response.ok) {
+        if (response.status === 404) {
+          // Package not found - this is a common case for invalid package names
+          return null;
+        }
+        throw new Error(`Registry request failed for ${packageName}: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json() as { 'dist-tags': { latest?: string } };
+      const latest = data['dist-tags']?.latest;
+      
+      if (!latest) {
+        throw new Error(`No latest version found for ${packageName}`);
+      }
+      
+      // Validate the returned version format
+      if (!this.validateVersion(latest)) {
+        if (this.config.verbose) {
+          console.warn(`Invalid version format received for ${packageName}: ${latest}`);
+        }
         return null;
       }
-      throw new Error(`Registry request failed for ${packageName}: ${response.status} ${response.statusText}`);
+      
+      return latest;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`Request timeout for ${packageName}`);
+      }
+      throw error;
     }
-
-    const data = await response.json() as { 'dist-tags': { latest?: string } };
-    const latest = data['dist-tags']?.latest;
-    
-    if (!latest) {
-      throw new Error(`No latest version found for ${packageName}`);
-    }
-    
-    return latest;
   }
 
   private async fetchLatestVersionsConcurrent(packageNames: string[]): Promise<Map<string, string>> {
@@ -365,5 +447,32 @@ export class OutdatedChecker {
       return this.config.failOnAny ? 1 : 0;
     }
     return 0;
+  }
+
+  private validatePackageName(name: string): boolean {
+    if (typeof name !== 'string' || name.length === 0 || name.length > 214) {
+      return false;
+    }
+    
+    // Basic npm package name validation
+    const nameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$/;
+    if (name.startsWith('@')) {
+      // Scoped packages: @scope/package
+      const parts = name.substring(1).split('/');
+      if (parts.length !== 2) return false;
+      return parts.every(part => nameRegex.test(part));
+    }
+    
+    return nameRegex.test(name);
+  }
+  
+  private validateVersion(version: string): boolean {
+    if (typeof version !== 'string' || version.length === 0 || version.length > 256) {
+      return false;
+    }
+    
+    // Basic semver validation - allow ranges and special cases
+    const versionRegex = /^[\^~><=]*\d+(\.\d+)*(\.[\w-]+)?$/;
+    return versionRegex.test(version);
   }
 }
