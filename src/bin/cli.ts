@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { Command } from 'commander';
 import { OutdatedChecker } from '../lib/checker.js';
 import { Formatter } from '../lib/formatter.js';

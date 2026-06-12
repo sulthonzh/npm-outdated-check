@@ -14,7 +14,7 @@
     }
   },
   "bin": {
-    "npm-outdated-check": "./dist/bin/cli.js"
+    "npm-outdated-check": "./dist/index.cjs"
   },
   "files": [
     "dist",
