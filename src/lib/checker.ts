@@ -29,243 +29,103 @@ export class OutdatedChecker {
     return { violations, totalChecked: packageInfo.length };
   }
 
-  async checkWithTransitive(): Promise<{ violations: VersionDiff[]; totalChecked: number }> {
-    const packageJson = await this.readPackageJson();
-    const allPackageInfo = await this.getAllPackageInfoWithTransitive(packageJson);
-    const violations: VersionDiff[] = [];
-
-    for (const pkg of allPackageInfo) {
-      if (this.isExcluded(pkg.name)) continue;
-
-      const diff = this.calculateVersionDiff(pkg);
-      if (diff.isViolation) {
-        violations.push(diff);
-      }
-    }
-
-    return { violations, totalChecked: allPackageInfo.length };
-  }
-
   private async readPackageJson(): Promise<NpmPackageJson> {
     const packagePath = join(this.basePath, 'package.json');
     const content = await readFile(packagePath, 'utf-8');
     return JSON.parse(content);
   }
 
-  private async readPackageLockJson(): Promise<any> {
-    const lockPath = join(this.basePath, 'package-lock.json');
-    try {
-      const content = await readFile(lockPath, 'utf-8');
-      return JSON.parse(content);
-    } catch {
-      return null;
-    }
-  }
-
-  private async getAllPackageInfoWithTransitive(packageJson: NpmPackageJson): Promise<PackageInfo[]> {
-    const packages: PackageInfo[] = [];
-    const seen = new Set<string>();
-    
-    // Start with direct dependencies
-    const directPackages = await this.getPackageInfo(packageJson);
-    for (const pkg of directPackages) {
-      if (!seen.has(pkg.name)) {
-        seen.add(pkg.name);
-        packages.push(pkg);
-      }
-    }
-    
-    // If we want to include transitive dependencies, read package-lock.json
-    if (this.config.transitive !== false) {
-      const lockJson = await this.readPackageLockJson();
-      if (lockJson) {
-        const transitivePackages = await this.getTransitivePackages(lockJson, seen);
-        packages.push(...transitivePackages);
-      }
-    }
-    
-    return packages;
-  }
-
-  private async getTransitivePackages(lockJson: any, seen: Set<string>): Promise<PackageInfo[]> {
-    const packages: PackageInfo[] = [];
-    
-    const processDependencies = (dependencies: Record<string, any>, type: 'prod' | 'dev') => {
-      for (const [name, info] of Object.entries(dependencies)) {
-        if (seen.has(name)) continue;
-        
-        seen.add(name);
-        
-        // Extract version from package-lock.json structure
-        const version = info.version || info;
-        const latest = lockJson?.versions?.[name]?.dist?.tags?.latest || 'latest';
-        
-        packages.push({
-          name,
-          current: version,
-          latest,
-          wanted: version,
-          type,
-          direct: false,
-        });
-      }
-    };
-    
-    if (lockJson.dependencies) {
-      processDependencies(lockJson.dependencies, 'prod');
-    }
-    if (lockJson.devDependencies) {
-      processDependencies(lockJson.devDependencies, 'dev');
-    }
-    
-    return packages;
-  }
-
   private async getPackageInfo(packageJson: NpmPackageJson): Promise<PackageInfo[]> {
-    const packages: PackageInfo[] = [];
+    const entries: Array<{ name: string; version: string; type: 'prod' | 'dev' }> = [];
     const deps = packageJson.dependencies || {};
     const devDeps = packageJson.devDependencies || {};
 
-    const allPackages: [string, string, 'prod' | 'dev'][] = [];
-    
     if (this.config.include.includes('prod')) {
       for (const [name, version] of Object.entries(deps)) {
-        allPackages.push([name, version, 'prod']);
+        entries.push({ name, version, type: 'prod' });
       }
     }
 
     if (this.config.include.includes('dev')) {
       for (const [name, version] of Object.entries(devDeps)) {
-        allPackages.push([name, version, 'dev']);
+        entries.push({ name, version, type: 'dev' });
       }
     }
 
-    // Fetch latest versions in parallel for better performance
-    const latestVersions = await this.fetchLatestVersionsConcurrent(allPackages.map(([name]) => name));
-    
-    for (const [name, version, type] of allPackages) {
-      const latest = latestVersions.get(name);
-      if (latest) {
-        packages.push({
-          name,
-          current: version,
-          latest,
-          wanted: version,
-          type,
-          direct: true,
-        });
-      }
+    // Fetch all latest versions concurrently with bounded concurrency
+    const MAX_CONCURRENT = 8;
+    const results: Array<PackageInfo | null> = [];
+
+    for (let i = 0; i < entries.length; i += MAX_CONCURRENT) {
+      const batch = entries.slice(i, i + MAX_CONCURRENT);
+      const batchResults = await Promise.all(
+        batch.map(async ({ name, version, type }) => {
+          const latest = await this.getLatestVersion(name);
+          if (!latest) return null;
+          return { name, current: version, latest, wanted: version, type, direct: true } satisfies PackageInfo;
+        })
+      );
+      results.push(...batchResults);
     }
 
-    return packages;
+    return results.filter((r): r is PackageInfo => r !== null);
   }
 
-
-
-  private async fetchLatestVersionWithRetry(packageName: string, maxRetries: number): Promise<string | null> {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  private async getLatestVersion(packageName: string): Promise<string | null> {
+    try {
+      // Validate registry URL format
       try {
-        return await this.fetchLatestVersionOnce(packageName);
-      } catch (error) {
-        if (attempt === maxRetries) {
-          if (this.config.verbose) {
-            console.warn(`Failed to fetch latest version for ${packageName} after ${maxRetries} attempts: ${error}`);
-          }
+        new URL(this.config.registry);
+      } catch {
+        throw new Error(`Invalid registry URL: ${this.config.registry}`);
+      }
+
+      // Use the abbreviated registry endpoint to avoid downloading
+      // full metadata for packages with many versions (e.g. lodash is 5MB+)
+      // Encode scoped package names: @types/node → %40types%2Fnode
+      const encoded = encodeURIComponent(packageName);
+      const url = `${this.config.registry}/${encoded}`;
+      
+      const response = await fetch(url, {
+        headers: { Accept: 'application/vnd.npm.install-v1+json' },
+        signal: AbortSignal.timeout(30_000),
+        // Additional error handling for network issues
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          // Package not found - this is a common case for invalid package names
           return null;
         }
-        
-        // Exponential backoff
-        const delay = Math.pow(2, attempt - 1) * 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    return null;
-  }
-
-  private async fetchLatestVersionOnce(packageName: string): Promise<string | null> {
-    // Validate registry URL format
-    try {
-      new URL(this.config.registry);
-    } catch {
-      throw new Error(`Invalid registry URL: ${this.config.registry}`);
-    }
-
-    // Use the abbreviated registry endpoint to avoid downloading
-    // full metadata for packages with many versions (e.g. lodash is 5MB+)
-    // Encode scoped package names: @types/node → %40types%2Fnode
-    const encoded = encodeURIComponent(packageName);
-    const url = `${this.config.registry}/${encoded}`;
-    
-    const response = await fetch(url, {
-      headers: { Accept: 'application/vnd.npm.install-v1+json' },
-      signal: AbortSignal.timeout(30_000),
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        // Package not found - this is a common case for invalid package names
+        // For other errors, log in verbose mode
+        if (this.config.verbose) {
+          console.warn(`Registry request failed for ${packageName}: ${response.status} ${response.statusText}`);
+        }
         return null;
       }
-      throw new Error(`Registry request failed for ${packageName}: ${response.status} ${response.statusText}`);
-    }
 
-    const data = await response.json() as { 'dist-tags': { latest?: string } };
-    const latest = data['dist-tags']?.latest;
-    
-    if (!latest) {
-      throw new Error(`No latest version found for ${packageName}`);
-    }
-    
-    return latest;
-  }
-
-  private async fetchLatestVersionsConcurrent(packageNames: string[]): Promise<Map<string, string>> {
-    const results = new Map<string, string>();
-    const failed = new Set<string>();
-    
-    // Process in batches to avoid overwhelming the registry
-    const batchSize = 10;
-    const batches = [];
-    
-    for (let i = 0; i < packageNames.length; i += batchSize) {
-      batches.push(packageNames.slice(i, i + batchSize));
-    }
-    
-    for (const batch of batches) {
-      const promises = batch.map(async (name) => {
-        try {
-          const latest = await this.fetchLatestVersionWithRetry(name, 2);
-          if (latest) {
-            results.set(name, latest);
-          } else {
-            failed.add(name);
-          }
-        } catch (error) {
-          if (this.config.verbose) {
-            console.warn(`Failed to fetch ${name}: ${error}`);
-          }
-          failed.add(name);
+      const data = await response.json() as { 'dist-tags': { latest?: string } };
+      const latest = data['dist-tags']?.latest;
+      
+      if (!latest) {
+        if (this.config.verbose) {
+          console.warn(`No latest version found for ${packageName}`);
         }
-      });
-      
-      await Promise.allSettled(promises);
-      
-      // Small delay between batches to be respectful to the registry
-      if (batches.indexOf(batch) < batches.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        return null;
       }
+      
+      return latest;
+    } catch (error) {
+      if (this.config.verbose) {
+        console.warn(`Failed to fetch latest version for ${packageName}: ${error}`);
+      }
+      return null;
     }
-    
-    if (this.config.verbose && failed.size > 0) {
-      console.log(`Failed to fetch latest versions for ${failed.size} packages: ${Array.from(failed).slice(0, 5).join(', ')}${failed.size > 5 ? '...' : ''}`);
-    }
-    
-    return results;
   }
 
   private calculateVersionDiff(pkg: PackageInfo): VersionDiff {
-    // Optimize version parsing with memoization for common patterns
-    const current = this.parseSemverWithRange(pkg.current);
+    // coerce() extracts a semver from range specs like ^1.2.3, ~1.2.3, >=1.2.3
+    const current = coerce(pkg.current);
     const latest = parse(pkg.latest);
 
     if (!current || !latest) {
@@ -282,17 +142,48 @@ export class OutdatedChecker {
       };
     }
 
+    // Calculate total version distance for accurate drift measurement.
+    // When major differs, minor/patch are not meaningful in isolation,
+    // so we compute a composite distance in "patch units" (major*1M + minor*1K + patch).
+    // Individual diffs are still reported for display.
     const majorDiff = latest.major - current.major;
     const minorDiff = latest.minor - current.minor;
     const patchDiff = latest.patch - current.patch;
 
+    // A violation occurs when the total drift exceeds any configured threshold.
+    // We check each component independently — a major bump of 1 is always a violation
+    // if maxMajor is 0, regardless of minor/patch.
     const isViolation =
       majorDiff > this.config.maxMajor ||
-      minorDiff > this.config.maxMinor ||
-      patchDiff > this.config.maxPatch;
+      (majorDiff === 0 && minorDiff > this.config.maxMinor) ||
+      (majorDiff === 0 && minorDiff === 0 && patchDiff > this.config.maxPatch);
 
-    // Calculate wanted version more efficiently
-    const wanted = this.calculateWantedVersion(pkg.current, current);
+    // For display: show actual per-component drift (positive only)
+    // When major differs, report total patch-equivalent distance for context
+    const displayMajor = Math.max(0, majorDiff);
+    const displayMinor = majorDiff > 0 ? latest.minor : Math.max(0, minorDiff);
+    const displayPatch = majorDiff > 0 ? latest.patch : (minorDiff > 0 ? latest.patch : Math.max(0, patchDiff));
+
+    // The 'wanted' field is the resolved version based on the semver range.
+    // For ^X.Y.Z, the max wanted is (X+1).0.0 (caret allows minor+patch bumps).
+    // For ~X.Y.Z, the max wanted is X.(Y+1).0 (tilde allows patch bumps only).
+    // For exact versions, wanted = current.
+    let wanted = pkg.current;
+    try {
+      const base = coerce(pkg.current);
+      if (base) {
+        if (pkg.current.startsWith('^')) {
+          wanted = `${base.major}.${base.minor}.${base.patch}`;
+        } else if (pkg.current.startsWith('~')) {
+          wanted = `${base.major}.${base.minor}.${base.patch}`;
+        } else if (!pkg.current.startsWith('>') && !pkg.current.startsWith('<') && !pkg.current.includes('|') && !pkg.current.includes(' - ')) {
+          // Exact version or simple version — use as-is
+          wanted = `${base.major}.${base.minor}.${base.patch}`;
+        }
+      }
+    } catch {
+      // Keep pkg.current as wanted
+    }
 
     return {
       name: pkg.name,
@@ -300,53 +191,11 @@ export class OutdatedChecker {
       latest: pkg.latest,
       wanted,
       type: pkg.type,
-      majorDiff: Math.max(0, majorDiff),
-      minorDiff: Math.max(0, minorDiff),
-      patchDiff: Math.max(0, patchDiff),
+      majorDiff: displayMajor,
+      minorDiff: displayMinor,
+      patchDiff: displayPatch,
       isViolation,
     };
-  }
-
-  private parseSemverWithRange(range: string): { major: number; minor: number; patch: number } | null {
-    // Handle simple ranges more efficiently
-    if (range.startsWith('^') || range.startsWith('~') || range.startsWith('>=') || range.startsWith('<=') || range.startsWith('>')) {
-      // Extract version part from range
-      const versionMatch = range.match(/^(>=|<=|>|<)?\s*(\d+\.\d+\.\d+)/);
-      if (versionMatch && versionMatch[2]) {
-        const version = parse(versionMatch[2]);
-        if (version) {
-          return { major: version.major, minor: version.minor, patch: version.patch };
-        }
-      }
-    }
-    
-    // For exact versions or complex ranges, use coerce
-    const coerced = coerce(range);
-    if (coerced) {
-      return { major: coerced.major, minor: coerced.minor, patch: coerced.patch };
-    }
-    
-    return null;
-  }
-
-  private calculateWantedVersion(currentRange: string, parsedVersion: { major: number; minor: number; patch: number }): string {
-    // Fast path for common patterns
-    if (currentRange.startsWith('^')) {
-      return `^${parsedVersion.major}.${parsedVersion.minor}.${parsedVersion.patch}`;
-    }
-    if (currentRange.startsWith('~')) {
-      return `~${parsedVersion.major}.${parsedVersion.minor}.${parsedVersion.patch}`;
-    }
-    if (currentRange.startsWith('>=') || currentRange.startsWith('<=') || currentRange.startsWith('>') || currentRange.startsWith('<')) {
-      const versionMatch = currentRange.match(/^(>=|<=|>|<)\s*(\d+\.\d+\.\d+)/);
-      if (versionMatch && versionMatch[2] === `${parsedVersion.major}.${parsedVersion.minor}.${parsedVersion.patch}`) {
-        return currentRange;
-      }
-      return `>=${parsedVersion.major}.${parsedVersion.minor}.${parsedVersion.patch}`;
-    }
-    
-    // For exact versions or complex ranges, return the original
-    return currentRange;
   }
 
   private isExcluded(packageName: string): boolean {

@@ -31,13 +31,31 @@ async function main() {
   try {
     let config = await ConfigLoader.load(options.config);
 
-    const includeTypes: ('prod' | 'dev')[] = options.dep === 'both' ? ['prod', 'dev'] : options.dep === 'prod' ? ['prod'] : ['dev'];
+    const depMap: Record<string, ('prod' | 'dev')[]> = {
+      both: ['prod', 'dev'],
+      prod: ['prod'],
+      dev: ['dev'],
+    };
+    const includeTypes = depMap[options.dep];
+    if (!includeTypes) {
+      console.error(`Error: --dep must be one of: both, prod, dev (got "${options.dep}")`);
+      process.exit(2);
+    }
     const exclude = options.exclude ? options.exclude.split(',').map((s: string) => s.trim()) : [];
 
+    const parsedMajor = parseInt(options.maxMajor, 10);
+    const parsedMinor = parseInt(options.maxMinor, 10);
+    const parsedPatch = parseInt(options.maxPatch, 10);
+
+    if (!Number.isFinite(parsedMajor) || !Number.isFinite(parsedMinor) || !Number.isFinite(parsedPatch)) {
+      console.error('Error: --max-major, --max-minor, --max-patch must be valid numbers');
+      process.exit(2);
+    }
+
     const cliOptions: Partial<Config> = {
-      maxMajor: parseInt(options.maxMajor, 10),
-      maxMinor: parseInt(options.maxMinor, 10),
-      maxPatch: parseInt(options.maxPatch, 10),
+      maxMajor: parsedMajor,
+      maxMinor: parsedMinor,
+      maxPatch: parsedPatch,
       include: includeTypes,
       exclude,
       registry: options.registry,
