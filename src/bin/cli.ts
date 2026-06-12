@@ -21,6 +21,7 @@ program
   .option('--config <path>', 'Path to config file')
   .option('--verbose', 'Verbose output')
   .option('--fail-on-any', 'Fail if any violations found', false)
+  .option('--transitive', 'Include transitive dependencies', false)
   .option('--path <dir>', 'Project directory (default: cwd)')
   .parse();
 
@@ -61,6 +62,7 @@ async function main() {
       format: options.format,
       verbose: options.verbose,
       failOnAny: options.failOnAny,
+      transitive: options.transitive,
     };
 
     config = ConfigLoader.mergeWithCli(config, cliOptions);
@@ -74,7 +76,9 @@ async function main() {
 
     const basePath = options.path || process.cwd();
     const checker = new OutdatedChecker(config, basePath);
-    const { violations, totalChecked } = await checker.check();
+    const { violations, totalChecked } = options.transitive 
+      ? await checker.checkWithTransitive()
+      : await checker.check();
 
     const result = {
       violations,

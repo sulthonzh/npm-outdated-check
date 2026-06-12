@@ -30,6 +30,7 @@ export interface Config {
   failOnAny: boolean;
   verbose: boolean;
   onlyViolations: boolean;
+  transitive: boolean;
 }
 
 export interface CheckResult {
