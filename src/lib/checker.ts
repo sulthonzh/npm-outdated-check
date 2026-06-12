@@ -8,7 +8,7 @@ export class OutdatedChecker {
   private basePath: string;
   private cacheDir: string;
   private cacheFile: string;
-  private cache: Map<string, { version: string; timestamp: number }>;;
+  private cache: Map<string, { version: string; timestamp: number }>;
 
   constructor(config: Config, basePath: string = process.cwd()) {
     this.config = config;
@@ -76,7 +76,9 @@ export class OutdatedChecker {
     const violations: VersionDiff[] = [];
 
     for (const pkg of packageInfo) {
-      if (this.isExcluded(pkg.name)) continue;
+      if (this.isExcluded(pkg.name)) {
+continue;
+}
 
       const diff = this.calculateVersionDiff(pkg);
       if (diff.isViolation) {
@@ -93,7 +95,9 @@ export class OutdatedChecker {
     const violations: VersionDiff[] = [];
 
     for (const pkg of allPackageInfo) {
-      if (this.isExcluded(pkg.name)) continue;
+      if (this.isExcluded(pkg.name)) {
+continue;
+}
 
       const diff = this.calculateVersionDiff(pkg);
       if (diff.isViolation) {
@@ -166,7 +170,9 @@ export class OutdatedChecker {
 
       for (const [name, info] of Object.entries(dependencies)) {
         // Skip if already processed
-        if (seen.has(name)) continue;
+        if (seen.has(name)) {
+continue;
+}
 
         // Validate package name for security
         if (!this.validatePackageName(name)) {
@@ -556,7 +562,9 @@ export class OutdatedChecker {
     if (name.startsWith('@')) {
       // Scoped packages: @scope/package
       const parts = name.substring(1).split('/');
-      if (parts.length !== 2) return false;
+      if (parts.length !== 2) {
+return false;
+}
       return parts.every(part => nameRegex.test(part));
     }
 

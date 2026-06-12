@@ -146,11 +146,19 @@ export class ConfigLoader {
   static validate(config: Config): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    if (config.maxMajor < 0) errors.push('maxMajor must be >= 0');
-    if (config.maxMinor < 0) errors.push('maxMinor must be >= 0');
-    if (config.maxPatch < 0) errors.push('maxPatch must be >= 0');
+    if (config.maxMajor < 0) {
+errors.push('maxMajor must be >= 0');
+}
+    if (config.maxMinor < 0) {
+errors.push('maxMinor must be >= 0');
+}
+    if (config.maxPatch < 0) {
+errors.push('maxPatch must be >= 0');
+}
 
-    if (config.include.length === 0) errors.push('include must have at least one type');
+    if (config.include.length === 0) {
+errors.push('include must have at least one type');
+}
     if (!config.include.every(type => ['prod', 'dev'].includes(type))) {
       errors.push('include must only contain "prod" and/or "dev"');
     }
