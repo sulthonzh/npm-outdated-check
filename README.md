@@ -127,6 +127,33 @@ Create `.npm-outdated-check.json` in your project root:
 - `2`: Configuration errors
 - `3`: Network/registry errors
 
+## Troubleshooting
+
+### Common Issues
+
+**"Error: Registry hostname not allowed for security"**
+- This is a security feature that restricts registry URLs to known safe domains
+- Use official npm registry: `https://registry.npmjs.org`
+- For private registries, make sure they're on a trusted domain
+
+**"Configuration errors" exit code 2**
+- Check your `.npm-outdated-check.json` for invalid JSON format
+- Verify registry URLs are properly formatted
+- Ensure exclude patterns are valid npm package names
+
+**"Network/registry errors" exit code 3**
+- Check your internet connection
+- Verify the registry URL is accessible
+- Use `--verbose` flag for more detailed error information
+- Private registries may require authentication (not currently supported)
+
+### Performance Tips
+
+- Enable caching by default (1-hour TTL) for faster repeated checks
+- Use `--exclude` patterns to skip known stable packages
+- For large projects, the `--transitive` flag may increase check time
+- Use `--disable-cache` only when you need absolute latest version data
+
 ## CI Examples
 
 ### GitHub Actions
