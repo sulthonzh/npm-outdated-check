@@ -9,6 +9,8 @@ export class OutdatedChecker {
   private cacheDir: string;
   private cacheFile: string;
   private cache: Map<string, { version: string; timestamp: number }>;
+  private cacheLoaded: Promise<void>;
+  private cacheDirty: boolean = false;
 
   constructor(config: Config, basePath: string = process.cwd()) {
     this.config = config;
@@ -16,10 +18,18 @@ export class OutdatedChecker {
     this.cacheDir = join(basePath, '.npm-outdated-cache');
     this.cacheFile = join(this.cacheDir, 'versions.json');
     this.cache = new Map();
-    this.loadCache();
+    // Store the promise so callers can await it before using the cache
+    this.cacheLoaded = this.loadCache();
+  }
+
+  private isCacheEnabled(): boolean {
+    return (this.config.cacheTTL ?? 3600000) > 0;
   }
 
   private async loadCache(): Promise<void> {
+    if (!this.isCacheEnabled()) {
+      return;
+    }
     try {
       await access(this.cacheFile);
       const content = await readFile(this.cacheFile, 'utf-8');
@@ -63,14 +73,25 @@ export class OutdatedChecker {
   }
 
   private async cacheVersion(packageName: string, version: string): Promise<void> {
+    if (!this.isCacheEnabled()) {
+      return;
+    }
     this.cache.set(packageName, {
       version,
       timestamp: Date.now()
     });
-    await this.saveCache();
+    this.cacheDirty = true;
+  }
+
+  private async flushCache(): Promise<void> {
+    if (this.cacheDirty) {
+      await this.saveCache();
+      this.cacheDirty = false;
+    }
   }
 
   async check(): Promise<{ violations: VersionDiff[]; totalChecked: number }> {
+    await this.cacheLoaded;
     const packageJson = await this.readPackageJson();
     const packageInfo = await this.getPackageInfo(packageJson);
     const violations: VersionDiff[] = [];
@@ -90,6 +111,7 @@ continue;
   }
 
   async checkWithTransitive(): Promise<{ violations: VersionDiff[]; totalChecked: number }> {
+    await this.cacheLoaded;
     const packageJson = await this.readPackageJson();
     const allPackageInfo = await this.getAllPackageInfoWithTransitive(packageJson);
     const violations: VersionDiff[] = [];
@@ -391,13 +413,14 @@ continue;
     
     // Process in batches to avoid overwhelming the registry
     const batchSize = 10;
-    const batches = [];
+    const batches: string[][] = [];
     
     for (let i = 0; i < packageNames.length; i += batchSize) {
       batches.push(packageNames.slice(i, i + batchSize));
     }
     
-    for (const batch of batches) {
+    for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+      const batch = batches[batchIdx];
       const batchPromises = batch.map(async (name) => {
         try {
           const latest = await this.fetchLatestVersionWithRetry(name, 2);
@@ -429,7 +452,7 @@ continue;
       }
       
       // Small delay between batches to be respectful to the registry
-      if (batches.indexOf(batch) < batches.length - 1) {
+      if (batchIdx < batches.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
@@ -444,7 +467,10 @@ continue;
     if (this.config.verbose && failed.size > 0) {
       console.log(`❌ Failed to fetch latest versions for ${failed.size} packages: ${Array.from(failed).slice(0, 5).join(', ')}${failed.size > 5 ? '...' : ''}`);
     }
-    
+
+    // Save cache once after all fetches complete (instead of per-package writes)
+    await this.flushCache();
+
     return results;
   }
 
