@@ -125,7 +125,7 @@ describe('OutdatedChecker', () => {
 // ─── ConfigLoader ───
 describe('ConfigLoader', () => {
   it('loads default config when no file exists', async () => {
-    const config = await ConfigLoader.load('/tmp/test-npm-outdated-config.json');
+    const config = await ConfigLoader.load();  // No path = use defaults
     assert.equal(config.maxMajor, 0);
     assert.equal(config.maxMinor, 2);
     assert.equal(config.maxPatch, 5);
@@ -135,7 +135,7 @@ describe('ConfigLoader', () => {
   });
 
   it('merges CLI options', async () => {
-    const baseConfig = await ConfigLoader.load('/tmp/test-npm-outdated-config.json');
+    const baseConfig = await ConfigLoader.load();
     const merged = ConfigLoader.mergeWithCli(baseConfig, { maxMajor: 1, maxMinor: 5, format: 'json' });
     assert.equal(merged.maxMajor, 1);
     assert.equal(merged.maxMinor, 5);
@@ -182,6 +182,33 @@ describe('ConfigLoader', () => {
   it('allows HTTP localhost registry', () => {
     const result = ConfigLoader.validate(makeConfig({ registry: 'http://localhost:4873' }));
     assert.equal(result.valid, true);
+  });
+
+  it('preserves config file failOnAny when CLI does not set it', () => {
+    const baseConfig = makeConfig({ failOnAny: true });
+    const merged = ConfigLoader.mergeWithCli(baseConfig, { maxMajor: 1 });
+    assert.equal(merged.failOnAny, true);
+  });
+
+  it('preserves config file transitive when CLI does not set it', () => {
+    const baseConfig = makeConfig({ transitive: true });
+    const merged = ConfigLoader.mergeWithCli(baseConfig, { maxMajor: 1 });
+    assert.equal(merged.transitive, true);
+  });
+
+  it('allows 127.0.0.1 registry as localhost', () => {
+    const result = ConfigLoader.validate(makeConfig({ registry: 'http://127.0.0.1:4873' }));
+    assert.equal(result.valid, true, `Expected valid, got: ${result.errors.join(', ')}`);
+  });
+
+  it('allows [::1] registry as localhost', () => {
+    const result = ConfigLoader.validate(makeConfig({ registry: 'http://[::1]:4873' }));
+    assert.equal(result.valid, true, `Expected valid, got: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects non-localhost IP registry', () => {
+    const result = ConfigLoader.validate(makeConfig({ registry: 'http://192.168.1.1:4873' }));
+    assert.equal(result.valid, false);
   });
 });
 

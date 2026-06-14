@@ -140,7 +140,15 @@ export class ConfigLoader {
   }
 
   static mergeWithCli(config: Config, cliOptions: Partial<Config>): Config {
-    return { ...config, ...cliOptions };
+    // Only override with explicitly-provided CLI options (skip undefined values)
+    // This prevents CLI defaults from overriding config file settings
+    const overrides: Partial<Config> = {};
+    for (const [key, value] of Object.entries(cliOptions)) {
+      if (value !== undefined) {
+        (overrides as Record<string, unknown>)[key] = value;
+      }
+    }
+    return { ...config, ...overrides };
   }
 
   static validate(config: Config): { valid: boolean; errors: string[] } {
@@ -182,7 +190,9 @@ errors.push('include must have at least one type');
       }
       
       // Prevent SSRF attacks by blocking IP addresses in hostname
-      if (hostname.match(/^\d+\.\d+\.\d+\.\d+$/) || hostname.startsWith('[')) {
+      // But allow allowlisted localhost IPs (127.0.0.1, [::1])
+      const isLocalhostIp = hostname === '127.0.0.1' || hostname === '[::1]';
+      if (!isLocalhostIp && (hostname.match(/^\d+\.\d+\.\d+\.\d+$/) || hostname.startsWith('['))) {
         errors.push('Registry IP addresses are not allowed for security');
       }
       

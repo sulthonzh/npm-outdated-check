@@ -21,10 +21,10 @@ program
   .option('--config <path>', 'Path to config file')
   .option('--verbose', 'Verbose output')
   .option('--fail-on-any', 'Fail if any violations found', false)
-  .option('--transitive', 'Include transitive dependencies', false)
+  .option('--transitive', 'Include transitive dependencies')
   .option('--path <dir>', 'Project directory (default: cwd)')
-  .option('--cache-ttl <ms>', 'Cache time-to-live in milliseconds (default: 3600000)', '3600000')
-  .option('--disable-cache', 'Disable caching completely', false)
+  .option('--cache-ttl <ms>', 'Cache time-to-live in milliseconds (default: 3600000)')
+  .option('--disable-cache', 'Disable caching completely')
   .parse();
 
 const options = program.opts();
@@ -37,17 +37,17 @@ async function main() {
     const exclude = options.exclude ? options.exclude.split(',').map((s: string) => s.trim()) : [];
 
     const cliOptions: Partial<Config> = {
-      maxMajor: parseInt(options.maxMajor, 10),
-      maxMinor: parseInt(options.maxMinor, 10),
-      maxPatch: parseInt(options.maxPatch, 10),
+      maxMajor: options.maxMajor !== undefined ? parseInt(options.maxMajor, 10) : undefined,
+      maxMinor: options.maxMinor !== undefined ? parseInt(options.maxMinor, 10) : undefined,
+      maxPatch: options.maxPatch !== undefined ? parseInt(options.maxPatch, 10) : undefined,
       include: includeTypes,
       exclude,
-      registry: options.registry,
-      format: options.format,
+      registry: options.registry !== 'https://registry.npmjs.org' ? options.registry : undefined,
+      format: options.format !== 'text' ? options.format : undefined,
       verbose: options.verbose,
       failOnAny: options.failOnAny,
       transitive: options.transitive,
-      cacheTTL: options.disableCache ? 0 : parseInt(options.cacheTtl, 10),
+      cacheTTL: options.disableCache ? 0 : (options.cacheTtl !== undefined ? parseInt(options.cacheTtl, 10) : undefined),
     };
 
     config = ConfigLoader.mergeWithCli(config, cliOptions);
