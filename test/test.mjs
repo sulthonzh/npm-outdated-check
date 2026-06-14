@@ -99,6 +99,15 @@ describe('OutdatedChecker', () => {
       assert.equal(result.patchDiff, 10);
       assert.equal(result.isViolation, true);
     });
+
+    it('handles prerelease versions without crashing', () => {
+      const checker = new OutdatedChecker(makeConfig());
+      const calc = checker.calculateVersionDiff.bind(checker);
+      // Prerelease versions like 1.0.0-beta.1 should be parsed correctly
+      const pkg = { name: 'test', current: '^1.0.0-beta.1', latest: '1.0.0', wanted: '^1.0.0-beta.1', type: 'prod', direct: true };
+      const result = calc(pkg);
+      assert.equal(result.isViolation, false);
+    });
   });
 
   describe('isExcluded', () => {
@@ -125,7 +134,9 @@ describe('OutdatedChecker', () => {
 // ─── ConfigLoader ───
 describe('ConfigLoader', () => {
   it('loads default config when no file exists', async () => {
-    const config = await ConfigLoader.load('/tmp/test-npm-outdated-config.json');
+    // Use a path that won't exist — ConfigLoader.load() should fall back to defaults
+    // when the optional cwd-based lookup fails
+    const config = await ConfigLoader.load();
     assert.equal(config.maxMajor, 0);
     assert.equal(config.maxMinor, 2);
     assert.equal(config.maxPatch, 5);
@@ -135,7 +146,7 @@ describe('ConfigLoader', () => {
   });
 
   it('merges CLI options', async () => {
-    const baseConfig = await ConfigLoader.load('/tmp/test-npm-outdated-config.json');
+    const baseConfig = await ConfigLoader.load();
     const merged = ConfigLoader.mergeWithCli(baseConfig, { maxMajor: 1, maxMinor: 5, format: 'json' });
     assert.equal(merged.maxMajor, 1);
     assert.equal(merged.maxMinor, 5);
@@ -182,6 +193,20 @@ describe('ConfigLoader', () => {
   it('allows HTTP localhost registry', () => {
     const result = ConfigLoader.validate(makeConfig({ registry: 'http://localhost:4873' }));
     assert.equal(result.valid, true);
+  });
+
+  it('accepts glob patterns in exclude list', () => {
+    // ConfigLoader should NOT reject glob patterns like @types/* or eslint-*
+    // These are valid exclude patterns supported by isExcluded()
+    const configs = [
+      makeConfig({ exclude: ['@types/*'] }),
+      makeConfig({ exclude: ['eslint-*'] }),
+      makeConfig({ exclude: ['@types/*', 'eslint-*', 'typescript'] }),
+    ];
+    for (const cfg of configs) {
+      const result = ConfigLoader.validate(cfg);
+      assert.equal(result.valid, true, `Should accept glob patterns`);
+    }
   });
 });
 

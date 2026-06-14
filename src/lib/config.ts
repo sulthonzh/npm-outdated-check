@@ -63,7 +63,7 @@ export class ConfigLoader {
     // Validate package names in exclude list
     if (userConfig.exclude) {
       for (const packageName of userConfig.exclude) {
-        if (typeof packageName === 'string' && !this.validatePackageName(packageName)) {
+        if (typeof packageName === 'string' && !this.validateExcludePattern(packageName)) {
           throw new Error(`Invalid package name in exclude list: ${packageName}`);
         }
       }
@@ -97,11 +97,24 @@ export class ConfigLoader {
     }
   }
 
-  private static validatePackageName(name: string): boolean {
+  /**
+   * Validate exclude patterns — supports glob syntax like @types/*, eslint-*, etc.
+   * Strips glob characters before validating the package name structure.
+   */
+  private static validateExcludePattern(name: string): boolean {
     if (typeof name !== 'string' || name.length === 0 || name.length > 214) {
       return false;
     }
-    return PACKAGE_NAME_REGEX.test(name);
+    // Allow glob patterns: replace * with a placeholder, then validate the name parts
+    // Valid glob chars: *, ?, [, ]
+    const hasGlob = /[*?\[\]]/.test(name);
+    if (!hasGlob) {
+      return PACKAGE_NAME_REGEX.test(name);
+    }
+    // For glob patterns, validate structure more loosely
+    // Allow: @scope/prefix*, prefix*, @scope/*, etc.
+    const globPattern = /^[a-zA-Z0-9@]([a-zA-Z0-9._\-/*?\[\]]*[a-zA-Z0-9*?\]])?$/;
+    return globPattern.test(name);
   }
 
   private static mergeConfig(defaultConfig: Config, userConfig: Partial<Config>): Config {

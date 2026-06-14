@@ -10,13 +10,22 @@ export class OutdatedChecker {
   private cacheFile: string;
   private cache: Map<string, { version: string; timestamp: number }>;
 
+  private _cacheReady: Promise<void>;
+
   constructor(config: Config, basePath: string = process.cwd()) {
     this.config = config;
     this.basePath = basePath;
     this.cacheDir = join(basePath, '.npm-outdated-cache');
     this.cacheFile = join(this.cacheDir, 'versions.json');
     this.cache = new Map();
-    this.loadCache();
+    // Store the cache-loading promise so callers can await it before use
+    // Skip cache entirely when cacheTTL is 0 (disabled)
+    this._cacheReady = config.cacheTTL === 0 ? Promise.resolve() : this.loadCache();
+  }
+
+  /** Ensure cache is loaded before reading/writing */
+  private async ensureCacheReady(): Promise<void> {
+    await this._cacheReady;
   }
 
   private async loadCache(): Promise<void> {
@@ -71,6 +80,7 @@ export class OutdatedChecker {
   }
 
   async check(): Promise<{ violations: VersionDiff[]; totalChecked: number }> {
+    await this.ensureCacheReady();
     const packageJson = await this.readPackageJson();
     const packageInfo = await this.getPackageInfo(packageJson);
     const violations: VersionDiff[] = [];
@@ -90,6 +100,7 @@ continue;
   }
 
   async checkWithTransitive(): Promise<{ violations: VersionDiff[]; totalChecked: number }> {
+    await this.ensureCacheReady();
     const packageJson = await this.readPackageJson();
     const allPackageInfo = await this.getAllPackageInfoWithTransitive(packageJson);
     const violations: VersionDiff[] = [];
@@ -576,8 +587,9 @@ return false;
       return false;
     }
 
-    // Basic semver validation - allow ranges and special cases
-    const versionRegex = /^[\^~><=]*\d+(\.\d+)*(\.[\w-]+)?$/;
+    // Allow valid semver ranges, prerelease, and build metadata
+    // Supports: 1.0.0, ^1.2.3, ~2.0.0, >=1.0.0, 1.0.0-beta.1, 1.0.0+build.5
+    const versionRegex = /^[\^~><=]*\d+(\.\d+)*(?:-[\w.\-]+)?(?:\+[\w.\-]+)?$/;
     return versionRegex.test(version);
   }
 }
