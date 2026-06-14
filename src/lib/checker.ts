@@ -24,12 +24,10 @@ export class OutdatedChecker {
       await access(this.cacheFile);
       const content = await readFile(this.cacheFile, 'utf-8');
       const cacheData = JSON.parse(content);
-      // Convert object back to Map
       for (const [key, value] of Object.entries(cacheData.versions || {})) {
         this.cache.set(key, value as { version: string; timestamp: number });
       }
     } catch {
-      // Cache doesn't exist, create it
       await mkdir(this.cacheDir, { recursive: true });
       await this.saveCache();
     }
@@ -128,7 +126,6 @@ continue;
     const packages: PackageInfo[] = [];
     const seen = new Set<string>();
 
-    // Start with direct dependencies
     const directPackages = await this.getPackageInfo(packageJson);
     for (const pkg of directPackages) {
       if (!seen.has(pkg.name)) {
@@ -137,7 +134,6 @@ continue;
       }
     }
 
-    // If we want to include transitive dependencies, read package-lock.json
     if (this.config.transitive !== false) {
       const lockJson = await this.readPackageLockJson();
       if (lockJson) {
@@ -152,7 +148,6 @@ continue;
   private async getTransitivePackages(lockJson: { versions?: Record<string, { version?: string }>; dependencies?: Record<string, string | { version?: string }>; devDependencies?: Record<string, string | { version?: string }>; [key: string]: unknown }, seen: Set<string>): Promise<PackageInfo[]> {
     const packages: PackageInfo[] = [];
 
-    // Validate package-lock.json structure for security
     if (!lockJson || typeof lockJson !== 'object') {
       if (this.config.verbose) {
         console.warn('Invalid package-lock.json structure');
@@ -160,7 +155,6 @@ continue;
       return [];
     }
 
-    // Validate dependencies structure
     const validateDependencies = (dependencies: Record<string, string | { version?: string }>, type: 'prod' | 'dev') => {
       if (!dependencies || typeof dependencies !== 'object') {
         return [];
@@ -169,12 +163,10 @@ continue;
       const validPackages: PackageInfo[] = [];
 
       for (const [name, info] of Object.entries(dependencies)) {
-        // Skip if already processed
         if (seen.has(name)) {
 continue;
 }
 
-        // Validate package name for security
         if (!this.validatePackageName(name)) {
           if (this.config.verbose) {
             console.warn(`Invalid package name in package-lock.json: ${name}`);
@@ -182,7 +174,6 @@ continue;
           continue;
         }
 
-        // Extract and validate version
         let version: string;
         if (typeof info === 'string') {
           version = info;
@@ -195,7 +186,6 @@ continue;
           continue;
         }
 
-        // Validate version format
         if (!this.validateVersion(version)) {
           if (this.config.verbose) {
             console.warn(`Invalid version format for ${name}: ${version}`);
@@ -205,7 +195,6 @@ continue;
 
         seen.add(name);
 
-        // Get latest version from package-lock.json if available, otherwise use current
         const latest = lockJson?.versions?.[name]?.version || version;
 
         validPackages.push({
@@ -221,7 +210,6 @@ continue;
       return validPackages;
     };
 
-    // Process dependencies with validation
     if (lockJson.dependencies) {
       packages.push(...validateDependencies(lockJson.dependencies, 'prod'));
     }
@@ -259,7 +247,6 @@ continue;
       }
     }
 
-    // Fetch latest versions in parallel for better performance
     const latestVersions = await this.fetchLatestVersionsConcurrent(allPackages.map(([name]) => name));
 
     for (const [name, version, type] of allPackages) {
@@ -302,7 +289,6 @@ continue;
   }
 
   private async fetchLatestVersionOnce(packageName: string): Promise<string | null> {
-    // First check cache
     const cached = this.getCachedVersion(packageName);
     if (cached) {
       if (this.config.verbose) {
@@ -311,7 +297,6 @@ continue;
       return cached;
     }
 
-    // Validate package name before making request
     if (!this.validatePackageName(packageName)) {
       if (this.config.verbose) {
         console.warn(`Invalid package name: ${packageName}`);
@@ -319,7 +304,6 @@ continue;
       return null;
     }
 
-    // Validate registry URL format
     try {
       new URL(this.config.registry);
     } catch {
@@ -344,7 +328,6 @@ continue;
 
       if (!response.ok) {
         if (response.status === 404) {
-          // Package not found - this is a common case for invalid package names
           return null;
         }
         throw new Error(`Registry request failed for ${packageName}: ${response.status} ${response.statusText}`);
@@ -357,7 +340,6 @@ continue;
         throw new Error(`No latest version found for ${packageName}`);
       }
 
-      // Validate the returned version format
       if (!this.validateVersion(latest)) {
         if (this.config.verbose) {
           console.warn(`Invalid version format received for ${packageName}: ${latest}`);
@@ -365,7 +347,6 @@ continue;
         return null;
       }
 
-      // Cache the result
       await this.cacheVersion(packageName, latest);
       return latest;
     } catch (error) {
@@ -379,17 +360,14 @@ continue;
   private async fetchLatestVersionsConcurrent(packageNames: string[]): Promise<Map<string, string>> {
     const results = new Map<string, string>();
     const failed = new Set<string>();
-    
-    // Progress tracking
+
     let totalProcessed = 0;
     const startTime = Date.now();
-    
-    // Show progress for large projects
+
     if (packageNames.length > 20 && this.config.verbose) {
       console.log(`📦 Checking ${packageNames.length} packages...`);
     }
-    
-    // Process in batches to avoid overwhelming the registry
+
     const batchSize = 10;
     const batches = [];
     
@@ -416,8 +394,7 @@ continue;
       
       await Promise.allSettled(batchPromises);
       totalProcessed += batch.length;
-      
-      // Show progress for large projects
+
       if (packageNames.length > 20 && this.config.verbose && totalProcessed % 50 === 0) {
         const elapsed = Date.now() - startTime;
         const avgTimePerPackage = elapsed / totalProcessed;
@@ -434,7 +411,6 @@ continue;
       }
     }
 
-    // Show final progress
     if (packageNames.length > 20 && this.config.verbose) {
       const elapsed = Date.now() - startTime;
       const successRate = Math.round(((packageNames.length - failed.size) / packageNames.length) * 100);
@@ -449,7 +425,6 @@ continue;
   }
 
   private calculateVersionDiff(pkg: PackageInfo): VersionDiff {
-    // Optimize version parsing with memoization for common patterns
     const current = this.parseSemverWithRange(pkg.current);
     const latest = parse(pkg.latest);
 
@@ -476,7 +451,6 @@ continue;
       minorDiff > this.config.maxMinor ||
       patchDiff > this.config.maxPatch;
 
-    // Calculate wanted version more efficiently
     const wanted = this.calculateWantedVersion(pkg.current, current);
 
     return {
@@ -493,9 +467,7 @@ continue;
   }
 
   private parseSemverWithRange(range: string): { major: number; minor: number; patch: number } | null {
-    // Handle simple ranges more efficiently
     if (range.startsWith('^') || range.startsWith('~') || range.startsWith('>=') || range.startsWith('<=') || range.startsWith('>')) {
-      // Extract version part from range
       const versionMatch = range.match(/^(>=|<=|>|<)?\s*(\d+\.\d+\.\d+)/);
       if (versionMatch && versionMatch[2]) {
         const version = parse(versionMatch[2]);
@@ -505,7 +477,6 @@ continue;
       }
     }
 
-    // For exact versions or complex ranges, use coerce
     const coerced = coerce(range);
     if (coerced) {
       return { major: coerced.major, minor: coerced.minor, patch: coerced.patch };
@@ -515,7 +486,6 @@ continue;
   }
 
   private calculateWantedVersion(currentRange: string, parsedVersion: { major: number; minor: number; patch: number }): string {
-    // Fast path for common patterns
     if (currentRange.startsWith('^')) {
       return `^${parsedVersion.major}.${parsedVersion.minor}.${parsedVersion.patch}`;
     }
@@ -530,7 +500,6 @@ continue;
       return `>=${parsedVersion.major}.${parsedVersion.minor}.${parsedVersion.patch}`;
     }
 
-    // For exact versions or complex ranges, return the original
     return currentRange;
   }
 
@@ -557,10 +526,8 @@ continue;
       return false;
     }
 
-    // Basic npm package name validation
     const nameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$/;
     if (name.startsWith('@')) {
-      // Scoped packages: @scope/package
       const parts = name.substring(1).split('/');
       if (parts.length !== 2) {
 return false;
@@ -576,7 +543,6 @@ return false;
       return false;
     }
 
-    // Basic semver validation - allow ranges and special cases
     const versionRegex = /^[\^~><=]*\d+(\.\d+)*(\.[\w-]+)?$/;
     return versionRegex.test(version);
   }

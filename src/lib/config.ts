@@ -2,10 +2,8 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import type { Config } from '../types/config.js';
 
-// Valid npm package name regex (simplified for security)
 const PACKAGE_NAME_REGEX = /^(@[a-zA-Z0-9][\w.-]*[a-zA-Z0-9]|[a-zA-Z0-9][\w.-]*[a-zA-Z0-9])$/;
 
-// Allowed registry domains for security
 const ALLOWED_REGISTRY_DOMAINS = [
   'registry.npmjs.org',
   'registry.yarnpkg.com',
@@ -38,8 +36,7 @@ export class ConfigLoader {
       try {
         const content = await readFile(configPath, 'utf-8');
         userConfig = JSON.parse(content);
-        
-        // Validate user config structure
+
         this.validateUserConfig(userConfig);
       } catch (error) {
         throw new Error(`Failed to load config from ${configPath}: ${error}`);
@@ -48,8 +45,7 @@ export class ConfigLoader {
       try {
         const content = await readFile(join(process.cwd(), '.npm-outdated-check.json'), 'utf-8');
         userConfig = JSON.parse(content);
-        
-        // Validate user config structure
+
         this.validateUserConfig(userConfig);
       } catch {
         // Config file is optional - use defaults if not found
@@ -60,7 +56,6 @@ export class ConfigLoader {
   }
 
   private static validateUserConfig(userConfig: Partial<Config>): void {
-    // Validate package names in exclude list
     if (userConfig.exclude) {
       for (const packageName of userConfig.exclude) {
         if (typeof packageName === 'string' && !this.validatePackageName(packageName)) {
@@ -69,21 +64,19 @@ export class ConfigLoader {
       }
     }
 
-    // Validate registry URL if provided
     if (userConfig.registry) {
       try {
         const url = new URL(userConfig.registry);
         const hostname = url.hostname;
-        
-        // Check if hostname is allowed for security
-        const isAllowed = ALLOWED_REGISTRY_DOMAINS.some(domain => 
+
+        const isAllowed = ALLOWED_REGISTRY_DOMAINS.some(domain =>
           hostname === domain || hostname.endsWith(`.${domain}`)
         );
-        
+
         if (!isAllowed) {
           throw new Error(`Registry hostname not allowed for security: ${hostname}`);
         }
-        
+
         // Prevent SSRF attacks by blocking IP addresses in hostname
         if (hostname.match(/^\d+\.\d+\.\d+\.\d+$/) || hostname.startsWith('[')) {
           throw new Error('Registry IP addresses are not allowed for security');
@@ -106,8 +99,7 @@ export class ConfigLoader {
 
   private static mergeConfig(defaultConfig: Config, userConfig: Partial<Config>): Config {
     const merged = { ...defaultConfig };
-    
-    // Deep merge for nested objects
+
     for (const [key, value] of Object.entries(userConfig)) {
       if (key === 'exclude' && Array.isArray(value)) {
         merged.exclude = value;
@@ -167,27 +159,25 @@ errors.push('include must have at least one type');
       errors.push('format must be text, json, table, or markdown');
     }
 
-    // Validate registry URL format and security
     try {
       const url = new URL(config.registry);
       const hostname = url.hostname;
-      
-      // Check if hostname is allowed for security
-      const isAllowed = ALLOWED_REGISTRY_DOMAINS.some(domain => 
+
+      const isAllowed = ALLOWED_REGISTRY_DOMAINS.some(domain =>
         hostname === domain || hostname.endsWith(`.${domain}`)
       );
-      
+
       if (!isAllowed) {
         errors.push(`Registry hostname not allowed for security: ${hostname}`);
       }
-      
+
       // Prevent SSRF attacks by blocking IP addresses in hostname
       if (hostname.match(/^\d+\.\d+\.\d+\.\d+$/) || hostname.startsWith('[')) {
         errors.push('Registry IP addresses are not allowed for security');
       }
-      
+
       // Validate protocol - allow localhost with any port for development/testing
-      if (!config.registry.startsWith('https://') && 
+      if (!config.registry.startsWith('https://') &&
           !config.registry.startsWith('http://localhost') &&
           !config.registry.startsWith('http://127.0.0.1') &&
           !config.registry.startsWith('http://[::1]')) {
@@ -197,10 +187,9 @@ errors.push('include must have at least one type');
           errors.push('Registry URL must use HTTPS for security (localhost allowed for testing)');
         }
       }
-      
+
       // Prevent non-standard ports for security, but allow localhost for development
       if (url.port && url.port !== '443' && url.port !== '80') {
-        // Allow localhost with any port for development/testing
         if (!hostname.startsWith('localhost') && !hostname.startsWith('127.0.0.1') && !hostname.startsWith('[::1]')) {
           errors.push(`Registry URL uses non-standard port: ${url.port}`);
         }
@@ -209,7 +198,6 @@ errors.push('include must have at least one type');
       errors.push(`Invalid registry URL: ${config.registry}`);
     }
 
-    // Validate cacheTTL
     if (config.cacheTTL !== undefined && (typeof config.cacheTTL !== 'number' || config.cacheTTL < 0)) {
       errors.push('cacheTTL must be a positive number or undefined');
     }
