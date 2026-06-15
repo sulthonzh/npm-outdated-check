@@ -1,4 +1,4 @@
-import { readFile } from 'fs/promises';
+import { readFile, access } from 'fs/promises';
 import { join } from 'path';
 import type { Config } from '../types/config.js';
 
@@ -42,7 +42,13 @@ export class ConfigLoader {
         // Validate user config structure
         this.validateUserConfig(userConfig);
       } catch (error) {
-        throw new Error(`Failed to load config from ${configPath}: ${error}`);
+        // If explicitly-provided config path doesn't exist or is invalid,
+        // fall back to defaults rather than crashing — config is optional
+        if (await this.configFileExists(configPath)) {
+          // File exists but couldn't be parsed — that's a real error
+          throw new Error(`Failed to load config from ${configPath}: ${error}`);
+        }
+        // File doesn't exist — silently use defaults
       }
     } else {
       try {
@@ -57,6 +63,15 @@ export class ConfigLoader {
     }
 
     return this.mergeConfig(DEFAULT_CONFIG, userConfig);
+  }
+
+  private static async configFileExists(path: string): Promise<boolean> {
+    try {
+      await access(path);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private static validateUserConfig(userConfig: Partial<Config>): void {

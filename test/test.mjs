@@ -125,7 +125,7 @@ describe('OutdatedChecker', () => {
 // ─── ConfigLoader ───
 describe('ConfigLoader', () => {
   it('loads default config when no file exists', async () => {
-    const config = await ConfigLoader.load('/tmp/test-npm-outdated-config.json');
+    const config = await ConfigLoader.load('/nonexistent/path/config.json');
     assert.equal(config.maxMajor, 0);
     assert.equal(config.maxMinor, 2);
     assert.equal(config.maxPatch, 5);
@@ -135,7 +135,7 @@ describe('ConfigLoader', () => {
   });
 
   it('merges CLI options', async () => {
-    const baseConfig = await ConfigLoader.load('/tmp/test-npm-outdated-config.json');
+    const baseConfig = await ConfigLoader.load('/nonexistent/path/config.json');
     const merged = ConfigLoader.mergeWithCli(baseConfig, { maxMajor: 1, maxMinor: 5, format: 'json' });
     assert.equal(merged.maxMajor, 1);
     assert.equal(merged.maxMinor, 5);

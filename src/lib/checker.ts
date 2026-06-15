@@ -9,6 +9,8 @@ export class OutdatedChecker {
   private cacheDir: string;
   private cacheFile: string;
   private cache: Map<string, { version: string; timestamp: number }>;
+  private cacheReady: Promise<void>;
+  private cacheDirty: boolean = false;
 
   constructor(config: Config, basePath: string = process.cwd()) {
     this.config = config;
@@ -16,7 +18,7 @@ export class OutdatedChecker {
     this.cacheDir = join(basePath, '.npm-outdated-cache');
     this.cacheFile = join(this.cacheDir, 'versions.json');
     this.cache = new Map();
-    this.loadCache();
+    this.cacheReady = this.loadCache();
   }
 
   private async loadCache(): Promise<void> {
@@ -63,14 +65,25 @@ export class OutdatedChecker {
   }
 
   private async cacheVersion(packageName: string, version: string): Promise<void> {
+    // Skip caching entirely when cache is disabled
+    if (this.config.cacheTTL === 0) return;
+
     this.cache.set(packageName, {
       version,
       timestamp: Date.now()
     });
-    await this.saveCache();
+    this.cacheDirty = true;
+  }
+
+  private async flushCache(): Promise<void> {
+    if (this.cacheDirty) {
+      await this.saveCache();
+      this.cacheDirty = false;
+    }
   }
 
   async check(): Promise<{ violations: VersionDiff[]; totalChecked: number }> {
+    await this.cacheReady;
     const packageJson = await this.readPackageJson();
     const packageInfo = await this.getPackageInfo(packageJson);
     const violations: VersionDiff[] = [];
@@ -86,10 +99,12 @@ continue;
       }
     }
 
+    await this.flushCache();
     return { violations, totalChecked: packageInfo.length };
   }
 
   async checkWithTransitive(): Promise<{ violations: VersionDiff[]; totalChecked: number }> {
+    await this.cacheReady;
     const packageJson = await this.readPackageJson();
     const allPackageInfo = await this.getAllPackageInfoWithTransitive(packageJson);
     const violations: VersionDiff[] = [];
@@ -105,6 +120,7 @@ continue;
       }
     }
 
+    await this.flushCache();
     return { violations, totalChecked: allPackageInfo.length };
   }
 
@@ -397,7 +413,8 @@ continue;
       batches.push(packageNames.slice(i, i + batchSize));
     }
     
-    for (const batch of batches) {
+    for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+      const batch = batches[batchIdx];
       const batchPromises = batch.map(async (name) => {
         try {
           const latest = await this.fetchLatestVersionWithRetry(name, 2);
@@ -429,7 +446,7 @@ continue;
       }
       
       // Small delay between batches to be respectful to the registry
-      if (batches.indexOf(batch) < batches.length - 1) {
+      if (batchIdx < batches.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
