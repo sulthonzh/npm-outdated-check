@@ -6,37 +6,54 @@ export class Formatter {
   constructor(private config: Config) {}
 
   format(result: CheckResult): string {
+    // Filter to only violations if configured
+    const displayResult = this.config.onlyViolations
+      ? { ...result, violations: result.violations }
+      : result;
+
     switch (this.config.format) {
       case 'json':
-        return this.formatJson(result);
+        return this.formatJson(displayResult);
       case 'table':
-        return this.formatTable(result);
+        return this.formatTable(displayResult);
       case 'markdown':
-        return this.formatMarkdown(result);
+        return this.formatMarkdown(displayResult);
       default:
-        return this.formatText(result);
+        return this.formatText(displayResult);
     }
   }
 
   private formatJson(result: CheckResult): string {
-    return JSON.stringify(
-      {
-        passed: result.passed,
-        totalChecked: result.totalChecked,
-        violationsCount: result.violations.length,
-        violations: result.violations.map((v) => ({
-          name: v.name,
-          current: v.current,
-          latest: v.latest,
-          type: v.type,
-          majorDiff: v.majorDiff,
-          minorDiff: v.minorDiff,
-          patchDiff: v.patchDiff,
-        })),
-      },
-      null,
-      2
-    );
+    // When onlyViolations is set, suppress totalChecked summary
+    const output = this.config.onlyViolations
+      ? {
+          passed: result.passed,
+          violationsCount: result.violations.length,
+          violations: result.violations.map((v) => ({
+            name: v.name,
+            current: v.current,
+            latest: v.latest,
+            type: v.type,
+            majorDiff: v.majorDiff,
+            minorDiff: v.minorDiff,
+            patchDiff: v.patchDiff,
+          })),
+        }
+      : {
+          passed: result.passed,
+          totalChecked: result.totalChecked,
+          violationsCount: result.violations.length,
+          violations: result.violations.map((v) => ({
+            name: v.name,
+            current: v.current,
+            latest: v.latest,
+            type: v.type,
+            majorDiff: v.majorDiff,
+            minorDiff: v.minorDiff,
+            patchDiff: v.patchDiff,
+          })),
+        };
+    return JSON.stringify(output, null, 2);
   }
 
   private formatTable(result: CheckResult): string {

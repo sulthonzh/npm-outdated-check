@@ -9,6 +9,9 @@ export class OutdatedChecker {
   private cacheDir: string;
   private cacheFile: string;
   private cache: Map<string, { version: string; timestamp: number }>;
+  private cacheLoaded: Promise<void>;
+  private pendingWrites: number = 0;
+  private flushScheduled: boolean = false;
 
   constructor(config: Config, basePath: string = process.cwd()) {
     this.config = config;
@@ -16,7 +19,7 @@ export class OutdatedChecker {
     this.cacheDir = join(basePath, '.npm-outdated-cache');
     this.cacheFile = join(this.cacheDir, 'versions.json');
     this.cache = new Map();
-    this.loadCache();
+    this.cacheLoaded = this.loadCache();
   }
 
   private async loadCache(): Promise<void> {
@@ -67,10 +70,24 @@ export class OutdatedChecker {
       version,
       timestamp: Date.now()
     });
-    await this.saveCache();
+    // Batch cache writes — avoid writing the entire file on every single package
+    this.pendingWrites++;
+    if (!this.flushScheduled) {
+      this.flushScheduled = true;
+      // Schedule a flush after current async operations complete
+      queueMicrotask(() => {
+        this.flushScheduled = false;
+        const writes = this.pendingWrites;
+        this.pendingWrites = 0;
+        if (writes > 0) {
+          this.saveCache().catch(() => {});
+        }
+      });
+    }
   }
 
   async check(): Promise<{ violations: VersionDiff[]; totalChecked: number }> {
+    await this.cacheLoaded;
     const packageJson = await this.readPackageJson();
     const packageInfo = await this.getPackageInfo(packageJson);
     const violations: VersionDiff[] = [];
@@ -90,6 +107,7 @@ continue;
   }
 
   async checkWithTransitive(): Promise<{ violations: VersionDiff[]; totalChecked: number }> {
+    await this.cacheLoaded;
     const packageJson = await this.readPackageJson();
     const allPackageInfo = await this.getAllPackageInfoWithTransitive(packageJson);
     const violations: VersionDiff[] = [];
@@ -576,8 +594,50 @@ return false;
       return false;
     }
 
-    // Basic semver validation - allow ranges and special cases
+    // Allow valid npm version specifiers that were previously rejected
+    // eslint-disable-next-line no-useless-escape
     const versionRegex = /^[\^~><=]*\d+(\.\d+)*(\.[\w-]+)?$/;
-    return versionRegex.test(version);
+
+    // Standard semver ranges (^, ~, >=, etc.)
+    if (versionRegex.test(version)) {
+      return true;
+    }
+
+    // Wildcard — matches any version
+    if (version === '*' || version === 'latest') {
+      return true;
+    }
+
+    // x-ranges: 1.x, 1.2.x, 1.x.x
+    if (/^\d+(\.\d+)?\.x(x)?$/i.test(version)) {
+      return true;
+    }
+
+    // workspace: protocol (pnpm/yarn monorepos)
+    if (version.startsWith('workspace:') || version.startsWith('file:')) {
+      return true;
+    }
+
+    // github:/git+/https+git:/ssh+git: protocols
+    if (/^(github|git\+|https\+git|ssh\+git):/.test(version)) {
+      return true;
+    }
+
+    // npm: alias protocol (npm:pkg-name@version)
+    if (version.startsWith('npm:')) {
+      return true;
+    }
+
+    // link: protocol (yarn link)
+    if (version.startsWith('link:')) {
+      return true;
+    }
+
+    // OR comparator: 1.0.0 || 2.0.0
+    if (version.includes('||') && version.split('||').every(part => this.validateVersion(part.trim()))) {
+      return true;
+    }
+
+    return false;
   }
 }

@@ -25,6 +25,7 @@ program
   .option('--path <dir>', 'Project directory (default: cwd)')
   .option('--cache-ttl <ms>', 'Cache time-to-live in milliseconds (default: 3600000)', '3600000')
   .option('--disable-cache', 'Disable caching completely', false)
+  .option('--only-violations', 'Show only violations (skip passing dependencies)', false)
   .parse();
 
 const options = program.opts();
@@ -48,6 +49,7 @@ async function main() {
       failOnAny: options.failOnAny,
       transitive: options.transitive,
       cacheTTL: options.disableCache ? 0 : parseInt(options.cacheTtl, 10),
+      onlyViolations: options.onlyViolations,
     };
 
     config = ConfigLoader.mergeWithCli(config, cliOptions);
