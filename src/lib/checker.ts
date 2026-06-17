@@ -74,13 +74,16 @@ export class OutdatedChecker {
     this.pendingWrites++;
     if (!this.flushScheduled) {
       this.flushScheduled = true;
-      // Schedule a flush after current async operations complete
+      // Schedule a flush after current async operations complete with debounce
       queueMicrotask(() => {
         this.flushScheduled = false;
         const writes = this.pendingWrites;
         this.pendingWrites = 0;
         if (writes > 0) {
-          this.saveCache().catch(() => {});
+          // Use a small delay to batch any subsequent writes
+          setTimeout(() => {
+            this.saveCache().catch(() => {});
+          }, 50);
         }
       });
     }
@@ -633,9 +636,17 @@ return false;
       return true;
     }
 
-    // OR comparator: 1.0.0 || 2.0.0
-    if (version.includes('||') && version.split('||').every(part => this.validateVersion(part.trim()))) {
-      return true;
+    // OR comparator: 1.0.0 || 2.0.0 (prevent infinite recursion by limiting depth)
+    if (version.includes('||')) {
+      const parts = version.split('||').map(part => part.trim());
+      // Prevent recursion by not calling validateVersion on each part
+      // Just validate basic format to avoid infinite recursion
+      return parts.every(part => {
+        // Basic format check - only allow simple semver and the patterns above
+        return /^[\^~><=]*\d+(\.\d+)*(\.[\w-]+)?$/.test(part) || 
+               part === '*' || 
+               /^\d+(\.\d+)?\.x(x)?$/i.test(part);
+      });
     }
 
     return false;

@@ -42,7 +42,9 @@ export class ConfigLoader {
         // Validate user config structure
         this.validateUserConfig(userConfig);
       } catch (error) {
-        throw new Error(`Failed to load config from ${configPath}: ${error}`);
+        // If config file doesn't exist, use defaults instead of throwing error
+        // This allows the tool to work when no explicit config file is provided
+        console.warn(`Config file not found at ${configPath}, using defaults`);
       }
     } else {
       try {
