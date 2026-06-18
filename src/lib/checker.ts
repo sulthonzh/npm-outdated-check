@@ -418,7 +418,8 @@ continue;
       batches.push(packageNames.slice(i, i + batchSize));
     }
     
-    for (const batch of batches) {
+    for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+      const batch = batches[batchIdx];
       const batchPromises = batch.map(async (name) => {
         try {
           const latest = await this.fetchLatestVersionWithRetry(name, 2);
@@ -450,7 +451,7 @@ continue;
       }
       
       // Small delay between batches to be respectful to the registry
-      if (batches.indexOf(batch) < batches.length - 1) {
+      if (batchIdx < batches.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     }

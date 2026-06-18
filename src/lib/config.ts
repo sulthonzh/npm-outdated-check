@@ -2,9 +2,6 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import type { Config } from '../types/config.js';
 
-// Valid npm package name regex (simplified for security)
-const PACKAGE_NAME_REGEX = /^(@[a-zA-Z0-9][\w.-]*[a-zA-Z0-9]|[a-zA-Z0-9][\w.-]*[a-zA-Z0-9])$/;
-
 // Allowed registry domains for security
 const ALLOWED_REGISTRY_DOMAINS = [
   'registry.npmjs.org',
@@ -62,11 +59,11 @@ export class ConfigLoader {
   }
 
   private static validateUserConfig(userConfig: Partial<Config>): void {
-    // Validate package names in exclude list
+    // Validate package names/glob patterns in exclude list
     if (userConfig.exclude) {
       for (const packageName of userConfig.exclude) {
-        if (typeof packageName === 'string' && !this.validatePackageName(packageName)) {
-          throw new Error(`Invalid package name in exclude list: ${packageName}`);
+        if (typeof packageName === 'string' && !this.validateExcludePattern(packageName)) {
+          throw new Error(`Invalid package name or glob pattern in exclude list: ${packageName}`);
         }
       }
     }
@@ -99,11 +96,25 @@ export class ConfigLoader {
     }
   }
 
-  private static validatePackageName(name: string): boolean {
-    if (typeof name !== 'string' || name.length === 0 || name.length > 214) {
+  /**
+   * Validates package names and glob patterns for the exclude list.
+   * Supports standard package names plus glob patterns like @types/* or @scope/*
+   */
+  private static validateExcludePattern(pattern: string): boolean {
+    if (typeof pattern !== 'string' || pattern.length === 0 || pattern.length > 214) {
       return false;
     }
-    return PACKAGE_NAME_REGEX.test(name);
+    // Allow glob patterns: split on / and validate each segment
+    // e.g. @types/* → validate @types and *
+    const segments = pattern.split('/');
+    for (const segment of segments) {
+      if (segment === '*') continue; // glob wildcard
+      // Each segment must be a valid package name segment
+      if (!/^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$/.test(segment)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static mergeConfig(defaultConfig: Config, userConfig: Partial<Config>): Config {
