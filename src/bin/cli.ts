@@ -79,6 +79,9 @@ async function main() {
 
     console.log(output);
 
+    // Flush cache before exiting to prevent data loss from pending debounced writes
+    await checker.flushCache();
+
     const exitCode = checker.getExitCode(violations);
     process.exit(exitCode);
   } catch (error) {

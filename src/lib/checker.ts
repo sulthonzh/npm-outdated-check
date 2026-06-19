@@ -81,13 +81,33 @@ export class OutdatedChecker {
         this.pendingWrites = 0;
         if (writes > 0) {
           // Use a small delay to batch any subsequent writes
-          setTimeout(() => {
-            this.saveCache().catch(() => {});
-          }, 50);
+          this.pendingFlush = new Promise<void>((resolve) => {
+            setTimeout(() => {
+              this.saveCache().then(resolve).catch(() => resolve());
+            }, 50);
+          });
         }
       });
     }
   }
+
+  /**
+   * Ensures all pending cache writes are flushed to disk.
+   * Call this before process.exit() to prevent data loss from pending debounced writes.
+   */
+  async flushCache(): Promise<void> {
+    if (this.pendingFlush) {
+      await this.pendingFlush;
+      this.pendingFlush = null;
+    }
+    // Final safety write in case new entries arrived after the scheduled flush
+    if (this.pendingWrites > 0) {
+      this.pendingWrites = 0;
+      await this.saveCache();
+    }
+  }
+
+  private pendingFlush: Promise<void> | null = null;
 
   async check(): Promise<{ violations: VersionDiff[]; totalChecked: number }> {
     await this.cacheLoaded;

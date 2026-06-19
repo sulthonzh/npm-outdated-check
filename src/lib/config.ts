@@ -86,9 +86,11 @@ export class ConfigLoader {
           throw new Error(`Registry hostname not allowed for security: ${hostname}`);
         }
         
-        // Prevent SSRF attacks by blocking IP addresses in hostname
-        if (hostname.match(/^\d+\.\d+\.\d+\.\d+$/) || hostname.startsWith('[')) {
-          throw new Error('Registry IP addresses are not allowed for security');
+        // Prevent SSRF attacks by blocking non-localhost IP addresses
+        // (localhost IPs 127.0.0.1 and [::1] are explicitly allowed above)
+        const isLocalhostIP = hostname === '127.0.0.1' || hostname === '[::1]';
+        if (!isLocalhostIP && hostname.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+          throw new Error('Non-localhost registry IP addresses are not allowed for security');
         }
       } catch (error) {
         if (error instanceof Error && !error.message.includes('Registry hostname not allowed') && !error.message.includes('Registry IP addresses are not allowed')) {
@@ -183,9 +185,11 @@ errors.push('include must have at least one type');
         errors.push(`Registry hostname not allowed for security: ${hostname}`);
       }
       
-      // Prevent SSRF attacks by blocking IP addresses in hostname
-      if (hostname.match(/^\d+\.\d+\.\d+\.\d+$/) || hostname.startsWith('[')) {
-        errors.push('Registry IP addresses are not allowed for security');
+      // Prevent SSRF attacks by blocking non-localhost IP addresses
+      // (localhost IPs 127.0.0.1 and [::1] are explicitly allowed above)
+      const isLocalhostIP = hostname === '127.0.0.1' || hostname === '[::1]';
+      if (!isLocalhostIP && hostname.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+        errors.push('Non-localhost registry IP addresses are not allowed for security');
       }
       
       // Validate protocol - allow localhost with any port for development/testing
