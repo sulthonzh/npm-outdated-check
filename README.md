@@ -228,6 +228,20 @@ Place `.npm-outdated-check.json` in your project root:
 }
 ```
 
+## Comparison
+
+| Feature | `npm-outdated-check` | `npm outdated` | `npm-check-updates` | `depcheck` | `renovate` |
+|---------|---------------------|----------------|---------------------|-----------|------------|
+| Version drift thresholds | ✅ Configurable per major/minor/patch | ❌ | ❌ | ❌ | ✅ (but complex) |
+| CI exit codes | ✅ Meaningful (0–3) | ✅ (0/1 only) | ❌ | ✅ | ❌ |
+| Config file | ✅ `.npm-outdated-check.json` | ❌ | ✅ | ✅ | ✅ (`renovate.json`) |
+| Output formats | Text, table, JSON, markdown | Text only | Text, JSON | Text, JSON | Dashboard |
+| Markdown for PR comments | ✅ Built-in | ❌ | ❌ | ❌ | ✅ (via bot) |
+| Exclude patterns | ✅ Globs (`@types/*`) | ❌ | ✅ | ✅ | ✅ |
+| Registry caching | ✅ Built-in | ❌ | ❌ | N/A | ✅ |
+| Setup time | <2 min | 0 min | <2 min | <2 min | 30+ min |
+| Use case | CI threshold gate | Quick manual check | Bulk update | Find unused deps | Auto-merge PRs |
+
 ## Contributing
 
 Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details.

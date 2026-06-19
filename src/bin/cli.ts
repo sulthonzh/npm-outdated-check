@@ -10,7 +10,7 @@ const program = new Command();
 program
   .name('npm-outdated-check')
   .description('CI-friendly dependency version threshold checker')
-  .version('1.0.0')
+  .version('1.1.0')
   .option('--max-major <n>', 'Maximum major version drift', '0')
   .option('--max-minor <n>', 'Maximum minor version drift', '2')
   .option('--max-patch <n>', 'Maximum patch version drift', '5')
