@@ -6,20 +6,15 @@ export class Formatter {
   constructor(private config: Config) {}
 
   format(result: CheckResult): string {
-    // Filter to only violations if configured
-    const displayResult = this.config.onlyViolations
-      ? { ...result, violations: result.violations }
-      : result;
-
     switch (this.config.format) {
       case 'json':
-        return this.formatJson(displayResult);
+        return this.formatJson(result);
       case 'table':
-        return this.formatTable(displayResult);
+        return this.formatTable(result);
       case 'markdown':
-        return this.formatMarkdown(displayResult);
+        return this.formatMarkdown(result);
       default:
-        return this.formatText(displayResult);
+        return this.formatText(result);
     }
   }
 
@@ -87,6 +82,9 @@ export class Formatter {
 
   private formatText(result: CheckResult): string {
     if (result.violations.length === 0) {
+      if (this.config.onlyViolations) {
+        return chalk.green('✓ All dependencies within threshold limits');
+      }
       return chalk.green(`✓ All dependencies (${result.totalChecked}) within threshold limits`);
     }
 
@@ -107,11 +105,18 @@ export class Formatter {
 
   private formatMarkdown(result: CheckResult): string {
     if (result.violations.length === 0) {
+      if (this.config.onlyViolations) {
+        return `## Dependency Check\n\n✅ All dependencies are within threshold limits.`;
+      }
       return `## Dependency Check\n\n✅ All **${result.totalChecked}** dependencies are within threshold limits.`;
     }
 
     let output = `## Dependency Check\n\n`;
-    output += `❌ **${result.violations.length} violation(s)** found out of ${result.totalChecked} dependencies.\n\n`;
+    if (this.config.onlyViolations) {
+      output += `❌ **${result.violations.length} violation(s)** found.\n\n`;
+    } else {
+      output += `❌ **${result.violations.length} violation(s)** found out of ${result.totalChecked} dependencies.\n\n`;
+    }
     output += `| Package | Current | Latest | Type | Major | Minor | Patch |\n`;
     output += `|---------|---------|--------|------|-------|-------|-------|\n`;
 
