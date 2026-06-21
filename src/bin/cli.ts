@@ -1,16 +1,21 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { OutdatedChecker } from '../lib/checker.js';
 import { Formatter } from '../lib/formatter.js';
 import { ConfigLoader } from '../lib/config.js';
 import type { Config } from '../types/config.js';
+
+const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8'));
+const VERSION = packageJson.version || '1.0.0';
 
 const program = new Command();
 
 program
   .name('npm-outdated-check')
   .description('CI-friendly dependency version threshold checker')
-  .version('1.1.0')
+  .version(VERSION)
   .option('--max-major <n>', 'Maximum major version drift', '0')
   .option('--max-minor <n>', 'Maximum minor version drift', '2')
   .option('--max-patch <n>', 'Maximum patch version drift', '5')

@@ -86,8 +86,10 @@ export class ConfigLoader {
           throw new Error(`Registry hostname not allowed for security: ${hostname}`);
         }
         
-        // Prevent SSRF attacks by blocking IP addresses in hostname
-        if (hostname.match(/^\d+\.\d+\.\d+\.\d+$/) || hostname.startsWith('[')) {
+        // Prevent SSRF attacks by blocking non-localhost IP addresses
+        // (127.0.0.1 and [::1] are allowed as they're localhost)
+        const ipV4Regex = /^\d+\.\d+\.\d+\.\d+$/;
+        if ((ipV4Regex.test(hostname) && hostname !== '127.0.0.1') || hostname.startsWith('[')) {
           throw new Error('Registry IP addresses are not allowed for security');
         }
       } catch (error) {
@@ -183,8 +185,10 @@ errors.push('include must have at least one type');
         errors.push(`Registry hostname not allowed for security: ${hostname}`);
       }
       
-      // Prevent SSRF attacks by blocking IP addresses in hostname
-      if (hostname.match(/^\d+\.\d+\.\d+\.\d+$/) || hostname.startsWith('[')) {
+      // Prevent SSRF attacks by blocking non-localhost IP addresses
+      // (127.0.0.1 and [::1] are allowed as they're localhost)
+      const ipV4Regex = /^\d+\.\d+\.\d+\.\d+$/;
+      if ((ipV4Regex.test(hostname) && hostname !== '127.0.0.1') || hostname.startsWith('[')) {
         errors.push('Registry IP addresses are not allowed for security');
       }
       

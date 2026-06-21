@@ -1,9 +1,11 @@
 import { readFile, writeFile, access, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { readFileSync } from 'fs';
 import { coerce, parse } from 'semver';
 import type { PackageInfo, VersionDiff, Config, NpmPackageJson, ExitCode } from '../types/config.js';
 
 export class OutdatedChecker {
+  private static version: string;
   private config: Config;
   private basePath: string;
   private cacheDir: string;
@@ -12,6 +14,16 @@ export class OutdatedChecker {
   private cacheLoaded: Promise<void>;
   private pendingWrites: number = 0;
   private flushScheduled: boolean = false;
+
+  static {
+    try {
+      const packagePath = join(process.cwd(), 'package.json');
+      const packageJson = JSON.parse(readFileSync(packagePath, 'utf-8'));
+      OutdatedChecker.version = packageJson.version || '1.0.0';
+    } catch {
+      OutdatedChecker.version = '1.0.0';
+    }
+  }
 
   constructor(config: Config, basePath: string = process.cwd()) {
     this.config = config;
@@ -358,7 +370,7 @@ continue;
         headers: {
           Accept: 'application/vnd.npm.install-v1+json',
           // Prevent sensitive header leakage
-          'User-Agent': `npm-outdated-check/1.0.0`
+          'User-Agent': `npm-outdated-check/${OutdatedChecker.version}`
         },
         signal: AbortSignal.timeout(30_000),
       });
