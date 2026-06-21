@@ -77,6 +77,27 @@ export class OutdatedChecker {
     return null;
   }
 
+  async flushCache(): Promise<void> {
+    // If a flush is already scheduled, wait for it to complete
+    if (this.flushScheduled) {
+      // Wait for the queueMicrotask to run
+      await new Promise<void>(resolve => {
+        queueMicrotask(() => resolve());
+      });
+      // Then wait for the setTimeout to complete
+      await new Promise<void>(resolve => {
+        setTimeout(resolve, 50);
+      });
+    }
+    
+    // If there are any remaining pending writes, save immediately
+    if (this.pendingWrites > 0) {
+      this.pendingWrites = 0;
+      this.flushScheduled = false;
+      await this.saveCache();
+    }
+  }
+
   private async cacheVersion(packageName: string, version: string): Promise<void> {
     this.cache.set(packageName, {
       version,

@@ -84,6 +84,7 @@ async function main() {
 
     console.log(output);
 
+    await checker.flushCache();
     const exitCode = checker.getExitCode(violations);
     process.exit(exitCode);
   } catch (error) {
