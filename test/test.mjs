@@ -270,6 +270,69 @@ describe('Formatter', () => {
     assert.ok(output.includes('2 violation(s)'));
   });
 
+  it('suppresses totalChecked in JSON format when onlyViolations=true', () => {
+    const formatter = new Formatter({ ...config, format: 'json', onlyViolations: true });
+    const output = formatter.format(resultWithViolations);
+    const parsed = JSON.parse(output);
+    assert.equal(parsed.totalChecked, undefined);
+    assert.equal(parsed.passed, false);
+    assert.equal(parsed.violationsCount, 1);
+  });
+
+  it('includes totalChecked in JSON format when onlyViolations=false', () => {
+    const formatter = new Formatter({ ...config, format: 'json', onlyViolations: false });
+    const output = formatter.format(resultWithViolations);
+    const parsed = JSON.parse(output);
+    assert.equal(parsed.totalChecked, 10);
+    assert.equal(parsed.passed, false);
+    assert.equal(parsed.violationsCount, 1);
+  });
+
+  it('suppresses totalChecked in text format when onlyViolations=true with violations', () => {
+    const formatter = new Formatter({ ...config, format: 'text', onlyViolations: true });
+    const output = formatter.format(resultWithViolations);
+    assert.ok(output.includes('react'));
+    assert.ok(output.includes('1 violation(s) found'));
+    assert.ok(!output.includes('10') || !output.includes('dependencies'));
+  });
+
+  it('suppresses totalChecked in text format when onlyViolations=true without violations', () => {
+    const formatter = new Formatter({ ...config, format: 'text', onlyViolations: true });
+    const output = formatter.format(resultNoViolations);
+    assert.ok(output.includes('within threshold limits'));
+    assert.ok(!output.includes('10') || !output.includes('dependencies'));
+  });
+
+  it('includes totalChecked in text format when onlyViolations=false without violations', () => {
+    const formatter = new Formatter({ ...config, format: 'text', onlyViolations: false });
+    const output = formatter.format(resultNoViolations);
+    assert.ok(output.includes('within threshold limits'));
+    assert.ok(output.includes('10'));
+    assert.ok(output.includes('dependencies'));
+  });
+
+  it('suppresses totalChecked in markdown format when onlyViolations=true with violations', () => {
+    const formatter = new Formatter({ ...config, format: 'markdown', onlyViolations: true });
+    const output = formatter.format(resultWithViolations);
+    assert.ok(output.includes('react'));
+    assert.ok(output.includes('1 violation(s)'));
+    assert.ok(!output.includes('10 dependencies'));
+  });
+
+  it('suppresses totalChecked in markdown format when onlyViolations=true without violations', () => {
+    const formatter = new Formatter({ ...config, format: 'markdown', onlyViolations: true });
+    const output = formatter.format(resultNoViolations);
+    assert.ok(output.includes('within threshold limits'));
+    assert.ok(!output.includes('10 dependencies'));
+  });
+
+  it('includes totalChecked in markdown format when onlyViolations=false without violations', () => {
+    const formatter = new Formatter({ ...config, format: 'markdown', onlyViolations: false });
+    const output = formatter.format(resultNoViolations);
+    assert.ok(output.includes('within threshold limits'));
+    assert.ok(output.includes('10'));
+  });
+
 // ─── Enhanced Features Tests ───
 describe('Enhanced Features', () => {
   describe('Enhanced version parsing', () => {
