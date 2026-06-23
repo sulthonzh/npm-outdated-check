@@ -130,8 +130,8 @@ export class OutdatedChecker {
 
     for (const pkg of packageInfo) {
       if (this.isExcluded(pkg.name)) {
-continue;
-}
+        continue;
+      }
 
       const diff = this.calculateVersionDiff(pkg);
       if (diff.isViolation) {
@@ -150,8 +150,8 @@ continue;
 
     for (const pkg of allPackageInfo) {
       if (this.isExcluded(pkg.name)) {
-continue;
-}
+        continue;
+      }
 
       const diff = this.calculateVersionDiff(pkg);
       if (diff.isViolation) {
