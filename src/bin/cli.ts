@@ -25,12 +25,14 @@ program
   .option('--format <fmt>', 'Output format (text,json,table,markdown)', 'text')
   .option('--config <path>', 'Path to config file')
   .option('--verbose', 'Verbose output')
-  .option('--fail-on-any', 'Fail if any violations found', false)
-  .option('--transitive', 'Include transitive dependencies', false)
+  .option('--fail-on-any', 'Fail if any violations found')
+  .option('--no-fail-on-any', 'Do not fail if any violations found (report-only mode)')
+  .option('--transitive', 'Include transitive dependencies')
+  .option('--no-transitive', 'Exclude transitive dependencies')
   .option('--path <dir>', 'Project directory (default: cwd)')
   .option('--cache-ttl <ms>', 'Cache time-to-live in milliseconds (default: 3600000)', '3600000')
-  .option('--disable-cache', 'Disable caching completely', false)
-  .option('--only-violations', 'Show only violations (skip passing dependencies)', false)
+  .option('--disable-cache', 'Disable caching completely')
+  .option('--only-violations', 'Show only violations (skip passing dependencies)')
   .parse();
 
 const options = program.opts();
@@ -57,7 +59,15 @@ async function main() {
       onlyViolations: options.onlyViolations,
     };
 
-    config = ConfigLoader.mergeWithCli(config, cliOptions);
+    config = ConfigLoader.mergeWithCli(config, {
+      ...cliOptions,
+      // Only override config with CLI options if they were explicitly provided
+      // (not undefined). This allows config file defaults to work properly.
+      verbose: cliOptions.verbose !== undefined ? cliOptions.verbose : config.verbose,
+      failOnAny: cliOptions.failOnAny !== undefined ? cliOptions.failOnAny : config.failOnAny,
+      transitive: cliOptions.transitive !== undefined ? cliOptions.transitive : config.transitive,
+      onlyViolations: cliOptions.onlyViolations !== undefined ? cliOptions.onlyViolations : config.onlyViolations,
+    });
 
     const validation = ConfigLoader.validate(config);
     if (!validation.valid) {

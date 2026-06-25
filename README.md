@@ -116,9 +116,13 @@ Create `.npm-outdated-check.json` in your project root:
 | `--registry <url>` | https://registry.npmjs.org | npm registry URL |
 | `--format <fmt>` | text | Output format (text, table, json, markdown) |
 | `--config <path>` | - | Path to config file |
-| `--path <dir>` | cwd | Project directory |
-| `--verbose` | false | Verbose output |
-| `--fail-on-any` | true | Exit with code 1 if any violations found (set to false for report-only mode) |
+| `--path <dir>` | cwd | Project directory (alternative to running from project root) |
+| `--verbose` | false | Verbose output (shows cache hits, fetch progress, configuration details) |
+| `--fail-on-any` | true | Exit with code 1 if any violations found (use `--no-fail-on-any` for report-only mode) |
+| `--only-violations` | false | Show only violating packages (omits totalChecked count in output) |
+| `--transitive` | true | Include transitive dependencies from package-lock.json |
+| `--cache-ttl <ms>` | 3600000 | Cache time-to-live in milliseconds (default: 1 hour, set 0 to disable) |
+| `--disable-cache` | false | Disable caching completely (equivalent to `--cache-ttl 0`) |
 
 ## Exit Codes
 
