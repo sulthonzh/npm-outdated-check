@@ -31,7 +31,8 @@ export class OutdatedChecker {
     this.cacheDir = join(basePath, '.npm-outdated-cache');
     this.cacheFile = join(this.cacheDir, 'versions.json');
     this.cache = new Map();
-    this.cacheLoaded = this.loadCache();
+    // Skip cache I/O entirely when cache is disabled (cacheTTL=0)
+    this.cacheLoaded = this.config.cacheTTL === 0 ? Promise.resolve() : this.loadCache();
   }
 
   private async loadCache(): Promise<void> {
@@ -64,6 +65,8 @@ export class OutdatedChecker {
   }
 
   private getCachedVersion(packageName: string): string | null {
+    // Skip cache lookup when disabled
+    if (this.config.cacheTTL === 0) return null;
     const cached = this.cache.get(packageName);
     if (cached) {
       const now = Date.now();
@@ -78,6 +81,8 @@ export class OutdatedChecker {
   }
 
   async flushCache(): Promise<void> {
+    // No-op when cache is disabled
+    if (this.config.cacheTTL === 0) return;
     // If a flush is already scheduled, wait for it to complete
     if (this.flushScheduled) {
       // Wait for the queueMicrotask to run
@@ -99,6 +104,8 @@ export class OutdatedChecker {
   }
 
   private async cacheVersion(packageName: string, version: string): Promise<void> {
+    // Skip caching entirely when disabled
+    if (this.config.cacheTTL === 0) return;
     this.cache.set(packageName, {
       version,
       timestamp: Date.now()
@@ -451,7 +458,8 @@ continue;
       batches.push(packageNames.slice(i, i + batchSize));
     }
     
-    for (const batch of batches) {
+    for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+      const batch = batches[batchIdx];
       const batchPromises = batch.map(async (name) => {
         try {
           const latest = await this.fetchLatestVersionWithRetry(name, 2);
@@ -483,7 +491,7 @@ continue;
       }
       
       // Small delay between batches to be respectful to the registry
-      if (batches.indexOf(batch) < batches.length - 1) {
+      if (batchIdx < batches.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
