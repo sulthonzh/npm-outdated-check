@@ -224,6 +224,9 @@ describe('Input Validation', () => {
       assert.equal(validate('file:./local'), true);
       assert.equal(validate('github:user/repo'), true);
       assert.equal(validate('git+https://github.com/u/r.git'), true);
+      assert.equal(validate('git+ssh://github.com/u/r.git'), true);
+      assert.equal(validate('git+http://github.com/u/r.git'), true);
+      assert.equal(validate('git+file:./local-repo'), true);
       assert.equal(validate('npm:other-pkg@1.0.0'), true);
       assert.equal(validate('link:../local'), true);
     });

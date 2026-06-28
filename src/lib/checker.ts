@@ -602,14 +602,22 @@ continue;
     return currentRange;
   }
 
+  private excludeRegexes: Map<string, RegExp> = new Map();
+
   private isExcluded(packageName: string): boolean {
     return this.config.exclude.some((pattern) => {
       if (!pattern.includes('*')) {
         return pattern === packageName;
       }
-      // Convert glob pattern to regex: @types/* → ^@types/[^/]+$
-      const regexStr = '^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]+') + '$';
-      return new RegExp(regexStr).test(packageName);
+      // Cache compiled glob regex to avoid recompiling on every package
+      let regex = this.excludeRegexes.get(pattern);
+      if (!regex) {
+        // Convert glob pattern to regex: @types/* → ^@types/[^/]+$
+        const regexStr = '^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]+') + '$';
+        regex = new RegExp(regexStr);
+        this.excludeRegexes.set(pattern, regex);
+      }
+      return regex.test(packageName);
     });
   }
 
@@ -668,8 +676,8 @@ return false;
       return true;
     }
 
-    // github:, git+https:, git+ssh:, https+git:, ssh+git: protocols
-    if (/^(github:|git\+(https|ssh):|https\+git:|ssh\+git:)/.test(version)) {
+    // git protocols: git+https:, git+ssh:, git+http:, git+file:, github:
+    if (/^(github:|git\+(https|ssh|http|file):)/.test(version)) {
       return true;
     }
 
