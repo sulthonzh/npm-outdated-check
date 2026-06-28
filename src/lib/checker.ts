@@ -66,7 +66,9 @@ export class OutdatedChecker {
 
   private getCachedVersion(packageName: string): string | null {
     // Skip cache lookup when disabled
-    if (this.config.cacheTTL === 0) return null;
+    if (this.config.cacheTTL === 0) {
+return null;
+}
     const cached = this.cache.get(packageName);
     if (cached) {
       const now = Date.now();
@@ -82,7 +84,9 @@ export class OutdatedChecker {
 
   async flushCache(): Promise<void> {
     // No-op when cache is disabled
-    if (this.config.cacheTTL === 0) return;
+    if (this.config.cacheTTL === 0) {
+return;
+}
     // If a flush is already scheduled, wait for it to complete
     if (this.flushScheduled) {
       // Wait for the queueMicrotask to run
@@ -105,7 +109,9 @@ export class OutdatedChecker {
 
   private async cacheVersion(packageName: string, version: string): Promise<void> {
     // Skip caching entirely when disabled
-    if (this.config.cacheTTL === 0) return;
+    if (this.config.cacheTTL === 0) {
+return;
+}
     this.cache.set(packageName, {
       version,
       timestamp: Date.now()
@@ -662,8 +668,8 @@ return false;
       return true;
     }
 
-    // github:/git+/https+git:/ssh+git: protocols
-    if (/^(github|git\+|https\+git|ssh\+git):/.test(version)) {
+    // github:, git+https:, git+ssh:, https+git:, ssh+git: protocols
+    if (/^(github:|git\+(https|ssh):|https\+git:|ssh\+git:)/.test(version)) {
       return true;
     }
 

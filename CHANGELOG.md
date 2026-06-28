@@ -1,3 +1,18 @@
+## v1.1.1 (Unreleased)
+
+### Fixed
+- Fixed ESLint config: added `root: true` to prevent parent config conflicts.
+- Fixed `validateVersion` regex: `git+https:` and `git+ssh:` protocols now correctly validated.
+- Disabled `no-console` ESLint rule for CLI tool (intentional console usage).
+
+### Added
+- CONTRIBUTING.md with development workflow and guidelines.
+- Comprehensive test suite: 71 tests (up from 34) with 84% line coverage.
+- Tests for input validation (package names, version specifiers, protocol versions).
+- Tests for all formatter output modes (JSON, text, table, markdown, verbose).
+- Mocked network tests for check(), retry logic, 404 handling, exclude patterns.
+- Tests for SSRF protection and registry validation edge cases.
+
 # Changelog
 
 ## v1.1.0 (2026-06-19)
