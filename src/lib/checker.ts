@@ -14,6 +14,7 @@ export class OutdatedChecker {
   private cacheLoaded: Promise<void>;
   private pendingWrites: number = 0;
   private flushScheduled: boolean = false;
+  private pendingSavePromise: Promise<void> = Promise.resolve();
 
   static {
     try {
@@ -87,19 +88,10 @@ return null;
     if (this.config.cacheTTL === 0) {
 return;
 }
-    // If a flush is already scheduled, wait for it to complete
-    if (this.flushScheduled) {
-      // Wait for the queueMicrotask to run
-      await new Promise<void>(resolve => {
-        queueMicrotask(() => resolve());
-      });
-      // Then wait for the setTimeout to complete
-      await new Promise<void>(resolve => {
-        setTimeout(resolve, 50);
-      });
-    }
-    
-    // If there are any remaining pending writes, save immediately
+    // Wait for any in-flight deferred saveCache() to finish before checking
+    await this.pendingSavePromise;
+
+    // If more writes accumulated after the deferred save started, flush them
     if (this.pendingWrites > 0) {
       this.pendingWrites = 0;
       this.flushScheduled = false;
@@ -127,9 +119,14 @@ return;
         this.pendingWrites = 0;
         if (writes > 0) {
           // Use a small delay to batch any subsequent writes
-          setTimeout(() => {
-            this.saveCache().catch(() => {});
-          }, 50);
+          // Store the promise so flushCache() can await it before process.exit()
+          this.pendingSavePromise = new Promise<void>(resolve => {
+            setTimeout(() => {
+              this.saveCache()
+                .catch(() => {})
+                .finally(() => resolve());
+            }, 50);
+          });
         }
       });
     }
