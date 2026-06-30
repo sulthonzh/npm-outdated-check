@@ -17,6 +17,7 @@ export interface VersionDiff {
   minorDiff: number;
   patchDiff: number;
   isViolation: boolean;
+  isRegression?: boolean; // true when published latest is behind local version
 }
 
 export interface Config {

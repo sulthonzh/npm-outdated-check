@@ -532,14 +532,18 @@ continue;
       };
     }
 
+    // Calculate diffs — detect both positive drift (outdated) and negative (registry version older than local)
     const majorDiff = latest.major - current.major;
     const minorDiff = latest.minor - current.minor;
     const patchDiff = latest.patch - current.patch;
 
+    // A violation occurs when the published latest version is ahead of the local version
+    // beyond configured thresholds. Negative diffs (latest behind local, e.g. local pre-release)
+    // are not violations.
     const isViolation =
       majorDiff > this.config.maxMajor ||
-      minorDiff > this.config.maxMinor ||
-      patchDiff > this.config.maxPatch;
+      (majorDiff === 0 && minorDiff > this.config.maxMinor) ||
+      (majorDiff === 0 && minorDiff === 0 && patchDiff > this.config.maxPatch);
 
     // Calculate wanted version more efficiently
     const wanted = this.calculateWantedVersion(pkg.current, current);
@@ -553,6 +557,7 @@ continue;
       majorDiff: Math.max(0, majorDiff),
       minorDiff: Math.max(0, minorDiff),
       patchDiff: Math.max(0, patchDiff),
+      isRegression: majorDiff < 0 || (majorDiff === 0 && minorDiff < 0) || (majorDiff === 0 && minorDiff === 0 && patchDiff < 0),
       isViolation,
     };
   }
