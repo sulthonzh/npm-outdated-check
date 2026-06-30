@@ -675,7 +675,40 @@ return false;
 
     // git protocols: git+https:, git+ssh:, git+http:, git+file:, github:
     if (/^(github:|git\+(https|ssh|http|file):)/.test(version)) {
-      return true;
+      // Validate URL format for git protocols
+      try {
+        if (version.startsWith('github:')) {
+          // github:owner/repo format
+          const repoPart = version.substring(7);
+          if (!/^[-a-zA-Z0-9]+\/[-a-zA-Z0-9_\.]+$/.test(repoPart)) {
+            return false;
+          }
+        } else {
+          // git+<protocol>:<url> format
+          const match = version.match(/^git\+(https|ssh|http|file):(.+)$/);
+          if (!match || !match[2]) {
+            return false;
+          }
+          // Validate URL structure
+          const protocol = match[1];
+          const urlPart = match[2];
+          if (protocol === 'file:') {
+            // file: should have a valid path
+            if (!urlPart || urlPart.length === 0) {
+              return false;
+            }
+          } else {
+            // http/https/ssh should have a valid URL
+            const url = new URL(`${protocol}:${urlPart}`);
+            if (!url.hostname || url.hostname.length === 0) {
+              return false;
+            }
+          }
+        }
+        return true;
+      } catch {
+        return false;
+      }
     }
 
     // npm: alias protocol (npm:pkg-name@version)
