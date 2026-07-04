@@ -351,7 +351,7 @@ describe('ConfigLoader', () => {
   it('rejects negative max values', () => {
     const result = ConfigLoader.validate(makeConfig({ maxMajor: -1 }));
     assert.equal(result.valid, false);
-    assert.ok(result.errors.includes('maxMajor must be >= 0'));
+    assert.ok(result.errors.includes('maxMajor must be a valid non-negative number'));
   });
 
   it('rejects invalid format', () => {
