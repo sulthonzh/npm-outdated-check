@@ -32,6 +32,7 @@ export class Formatter {
             majorDiff: v.majorDiff,
             minorDiff: v.minorDiff,
             patchDiff: v.patchDiff,
+            isRegression: v.isRegression || false,
           })),
         }
       : {
@@ -46,6 +47,7 @@ export class Formatter {
             majorDiff: v.majorDiff,
             minorDiff: v.minorDiff,
             patchDiff: v.patchDiff,
+            isRegression: v.isRegression || false,
           })),
         };
     return JSON.stringify(output, null, 2);

@@ -150,15 +150,15 @@ export class ConfigLoader {
   static validate(config: Config): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    if (config.maxMajor < 0) {
-errors.push('maxMajor must be >= 0');
-}
-    if (config.maxMinor < 0) {
-errors.push('maxMinor must be >= 0');
-}
-    if (config.maxPatch < 0) {
-errors.push('maxPatch must be >= 0');
-}
+    if (!Number.isFinite(config.maxMajor) || config.maxMajor < 0) {
+      errors.push('maxMajor must be a valid non-negative number');
+    }
+    if (!Number.isFinite(config.maxMinor) || config.maxMinor < 0) {
+      errors.push('maxMinor must be a valid non-negative number');
+    }
+    if (!Number.isFinite(config.maxPatch) || config.maxPatch < 0) {
+      errors.push('maxPatch must be a valid non-negative number');
+    }
 
     if (config.include.length === 0) {
 errors.push('include must have at least one type');
