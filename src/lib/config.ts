@@ -92,8 +92,9 @@ export class ConfigLoader {
         if ((ipV4Regex.test(hostname) && hostname !== '127.0.0.1') || (hostname.startsWith('[') && hostname !== '[::1]')) {
           throw new Error('Registry IP addresses are not allowed for security');
         }
-      } catch (error) {
-        if (error instanceof Error && !error.message.includes('Registry hostname not allowed') && !error.message.includes('Registry IP addresses are not allowed')) {
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        if (!error.message.includes('Registry hostname not allowed') && !error.message.includes('Registry IP addresses are not allowed')) {
           throw new Error(`Invalid registry URL: ${userConfig.registry}`);
         }
         throw error;
