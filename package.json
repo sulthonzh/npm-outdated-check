@@ -25,6 +25,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "pretest": "npm run build",
     "test": "node --test test/test.mjs",
     "test:watch": "node --test --watch test/test.mjs",
     "lint": "eslint src --ext .ts",
