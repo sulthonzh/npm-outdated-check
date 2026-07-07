@@ -178,7 +178,7 @@ return;
     return JSON.parse(content);
   }
 
-  private async readPackageLockJson(): Promise<{ versions?: Record<string, { version?: string }>; dependencies?: Record<string, string | { version?: string }>; devDependencies?: Record<string, string | { version?: string }>; [key: string]: unknown } | null> {
+  private async readPackageLockJson(): Promise<{ versions?: Record<string, { version?: string }>; dependencies?: Record<string, string | { version?: string }>; devDependencies?: Record<string, string | { version?: string }>; packages?: Record<string, unknown>; [key: string]: unknown } | null> {
     const lockPath = join(this.basePath, 'package-lock.json');
     try {
       const content = await readFile(lockPath, 'utf-8');
@@ -206,6 +206,20 @@ return;
       const lockJson = await this.readPackageLockJson();
       if (lockJson) {
         const transitivePackages = await this.getTransitivePackages(lockJson, seen);
+
+        // Fetch latest versions for transitive packages from registry
+        // (package-lock.json only contains locked versions, not registry latest)
+        if (transitivePackages.length > 0) {
+          const transitiveNames = transitivePackages.map(p => p.name);
+          const latestVersions = await this.fetchLatestVersionsConcurrent(transitiveNames);
+          for (const pkg of transitivePackages) {
+            const latest = latestVersions.get(pkg.name);
+            if (latest) {
+              pkg.latest = latest;
+            }
+          }
+        }
+
         packages.push(...transitivePackages);
       }
     }
@@ -213,7 +227,20 @@ return;
     return packages;
   }
 
-  private async getTransitivePackages(lockJson: { versions?: Record<string, { version?: string }>; dependencies?: Record<string, string | { version?: string }>; devDependencies?: Record<string, string | { version?: string }>; [key: string]: unknown }, seen: Set<string>): Promise<PackageInfo[]> {
+  private extractPackageNameFromLockPath(lockPath: string): string | null {
+    // lockfileVersion 2/3 keys are paths like "node_modules/lodash" or "node_modules/@types/node"
+    // For nested deps: "node_modules/foo/node_modules/bar" → "bar"
+    const lastIdx = lockPath.lastIndexOf('node_modules/');
+    if (lastIdx === -1) {
+      return null;
+    }
+    return lockPath.substring(lastIdx + 'node_modules/'.length);
+  }
+
+  private async getTransitivePackages(
+    lockJson: { versions?: Record<string, { version?: string }>; dependencies?: Record<string, string | { version?: string }>; devDependencies?: Record<string, string | { version?: string }>; packages?: Record<string, unknown>; [key: string]: unknown },
+    seen: Set<string>
+  ): Promise<PackageInfo[]> {
     const packages: PackageInfo[] = [];
 
     // Validate package-lock.json structure for security
@@ -224,19 +251,24 @@ return;
       return [];
     }
 
-    // Validate dependencies structure
-    const validateDependencies = (dependencies: Record<string, string | { version?: string }>, type: 'prod' | 'dev') => {
-      if (!dependencies || typeof dependencies !== 'object') {
-        return [];
-      }
+    // lockfileVersion 2/3: use "packages" object (default since npm v7+)
+    // Keys are node_modules paths: "node_modules/lodash", "node_modules/@types/node"
+    if (lockJson.packages && typeof lockJson.packages === 'object') {
+      const rootPkg = (lockJson.packages as Record<string, any>)[''] || {};
+      const rootDeps = rootPkg.dependencies || {};
+      const rootDevDeps = rootPkg.devDependencies || {};
 
-      const validPackages: PackageInfo[] = [];
+      for (const [key, rawInfo] of Object.entries(lockJson.packages as Record<string, any>)) {
+        // Skip root package entry
+        if (key === '') continue;
 
-      for (const [name, info] of Object.entries(dependencies)) {
-        // Skip if already processed
-        if (seen.has(name)) {
-continue;
-}
+        // Extract package name from node_modules path
+        const name = this.extractPackageNameFromLockPath(key);
+        if (!name) continue;
+        if (seen.has(name)) continue;
+
+        // Skip linked packages (workspace symlinks)
+        if (rawInfo?.link) continue;
 
         // Validate package name for security
         if (!this.validatePackageName(name)) {
@@ -247,6 +279,52 @@ continue;
         }
 
         // Extract and validate version
+        const version = rawInfo?.version;
+        if (!version || typeof version !== 'string' || !this.validateVersion(version)) {
+          if (this.config.verbose) {
+            console.warn(`Invalid version format for ${name}: ${version}`);
+          }
+          continue;
+        }
+
+        seen.add(name);
+
+        // Determine dependency type: dev if only in devDependencies of root
+        const isDev = rootDevDeps[name] !== undefined && rootDeps[name] === undefined;
+
+        packages.push({
+          name,
+          current: version,
+          latest: version, // Registry latest will be fetched by caller
+          wanted: version,
+          type: isDev ? 'dev' : 'prod',
+          direct: false,
+        });
+      }
+
+      return packages;
+    }
+
+    // Fall back to lockfileVersion 1 (dependencies format)
+    const validateDependencies = (dependencies: Record<string, string | { version?: string }>, type: 'prod' | 'dev') => {
+      if (!dependencies || typeof dependencies !== 'object') {
+        return [];
+      }
+
+      const validPackages: PackageInfo[] = [];
+
+      for (const [name, info] of Object.entries(dependencies)) {
+        if (seen.has(name)) {
+          continue;
+        }
+
+        if (!this.validatePackageName(name)) {
+          if (this.config.verbose) {
+            console.warn(`Invalid package name in package-lock.json: ${name}`);
+          }
+          continue;
+        }
+
         let version: string;
         if (typeof info === 'string') {
           version = info;
@@ -259,7 +337,6 @@ continue;
           continue;
         }
 
-        // Validate version format
         if (!this.validateVersion(version)) {
           if (this.config.verbose) {
             console.warn(`Invalid version format for ${name}: ${version}`);
@@ -269,13 +346,10 @@ continue;
 
         seen.add(name);
 
-        // Get latest version from package-lock.json if available, otherwise use current
-        const latest = lockJson?.versions?.[name]?.version || version;
-
         validPackages.push({
           name,
           current: version,
-          latest,
+          latest: version, // Registry latest will be fetched by caller
           wanted: version,
           type,
           direct: false,
@@ -285,12 +359,12 @@ continue;
       return validPackages;
     };
 
-    // Process dependencies with validation
+    // Process dependencies with validation (v1 lockfile format)
     if (lockJson.dependencies) {
-      packages.push(...validateDependencies(lockJson.dependencies, 'prod'));
+      packages.push(...validateDependencies(lockJson.dependencies as Record<string, string | { version?: string }>, 'prod'));
     }
     if (lockJson.devDependencies) {
-      packages.push(...validateDependencies(lockJson.devDependencies, 'dev'));
+      packages.push(...validateDependencies(lockJson.devDependencies as Record<string, string | { version?: string }>, 'dev'));
     }
 
     return packages;

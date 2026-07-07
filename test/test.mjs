@@ -752,6 +752,117 @@ describe('Enhanced Features', () => {
       const checker = new OutdatedChecker(makeConfig({ transitive: true }));
       assert.ok(typeof checker.checkWithTransitive === 'function');
     });
+
+    it('parses lockfileVersion 3 packages format for transitive deps', async () => {
+      // Mock fetch to return latest versions
+      globalThis.fetch = async (url) => {
+        const pkgName = decodeURIComponent(String(url).split('/').pop() || '');
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            'dist-tags': {
+              latest: pkgName === 'lodash' ? '4.17.99' : '2.0.0',
+            },
+          }),
+        };
+      };
+
+      const { mkdtempSync, writeFileSync } = await import('fs');
+      const { tmpdir } = await import('os');
+      const { join } = await import('path');
+      const tmpDir = mkdtempSync(join(tmpdir(), 'npm-outdated-v3-'));
+      writeFileSync(join(tmpDir, 'package.json'), JSON.stringify({
+        dependencies: { express: '^4.18.0' },
+      }));
+      // lockfileVersion 3 with "packages" format (standard since npm v7)
+      writeFileSync(join(tmpDir, 'package-lock.json'), JSON.stringify({
+        name: 'test-project',
+        version: '1.0.0',
+        lockfileVersion: 3,
+        packages: {
+          '': { name: 'test-project', version: '1.0.0', dependencies: { express: '^4.18.0' } },
+          'node_modules/express': { version: '4.18.0' },
+          'node_modules/body-parser': { version: '1.20.0' },
+          'node_modules/lodash': { version: '4.17.21' },
+          'node_modules/@types/node': { version: '20.0.0' },
+        },
+      }));
+
+      const checker = new OutdatedChecker(makeConfig({ cacheTTL: 0 }), tmpDir);
+      const { totalChecked, violations } = await checker.checkWithTransitive();
+
+      // express (direct) + body-parser + lodash + @types/node = 4 total
+      assert.equal(totalChecked, 4);
+      // lodash 4.17.21 -> 4.17.99 is patch diff 78, exceeds default maxPatch=5
+      const lodashViolation = violations.find(v => v.name === 'lodash');
+      assert.ok(lodashViolation, 'lodash should be a violation');
+      assert.equal(lodashViolation.majorDiff, 0);
+      assert.equal(lodashViolation.minorDiff, 0);
+      assert.equal(lodashViolation.patchDiff, 78);
+    });
+
+    it('handles nested node_modules paths in lockfileVersion 3', async () => {
+      globalThis.fetch = async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ 'dist-tags': { latest: '1.0.0' } }),
+      });
+
+      const { mkdtempSync, writeFileSync } = await import('fs');
+      const { tmpdir } = await import('os');
+      const { join } = await import('path');
+      const tmpDir = mkdtempSync(join(tmpdir(), 'npm-outdated-nested-'));
+      writeFileSync(join(tmpDir, 'package.json'), JSON.stringify({
+        dependencies: { foo: '^1.0.0' },
+      }));
+      writeFileSync(join(tmpDir, 'package-lock.json'), JSON.stringify({
+        name: 'test-project',
+        version: '1.0.0',
+        lockfileVersion: 3,
+        packages: {
+          '': { name: 'test-project', version: '1.0.0', dependencies: { foo: '^1.0.0' } },
+          'node_modules/foo': { version: '1.0.0' },
+          'node_modules/foo/node_modules/bar': { version: '2.0.0' },
+        },
+      }));
+
+      const checker = new OutdatedChecker(makeConfig({ cacheTTL: 0 }), tmpDir);
+      const { totalChecked } = await checker.checkWithTransitive();
+      // foo (direct) + bar (transitive, nested) = 2
+      assert.equal(totalChecked, 2);
+    });
+
+    it('skips linked packages in lockfileVersion 3', async () => {
+      globalThis.fetch = async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ 'dist-tags': { latest: '1.0.0' } }),
+      });
+
+      const { mkdtempSync, writeFileSync } = await import('fs');
+      const { tmpdir } = await import('os');
+      const { join } = await import('path');
+      const tmpDir = mkdtempSync(join(tmpdir(), 'npm-outdated-link-'));
+      writeFileSync(join(tmpDir, 'package.json'), JSON.stringify({
+        dependencies: { foo: '^1.0.0' },
+      }));
+      writeFileSync(join(tmpDir, 'package-lock.json'), JSON.stringify({
+        name: 'test-project',
+        version: '1.0.0',
+        lockfileVersion: 3,
+        packages: {
+          '': { name: 'test-project', version: '1.0.0', dependencies: { foo: '^1.0.0' } },
+          'node_modules/foo': { version: '1.0.0' },
+          'node_modules/internal-pkg': { link: true, resolved: 'packages/internal-pkg' },
+        },
+      }));
+
+      const checker = new OutdatedChecker(makeConfig({ cacheTTL: 0 }), tmpDir);
+      const { totalChecked } = await checker.checkWithTransitive();
+      // foo (direct) + internal-pkg skipped (link: true) = 1
+      assert.equal(totalChecked, 1);
+    });
   });
 
   describe('cache behavior', () => {
