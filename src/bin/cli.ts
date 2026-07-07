@@ -59,14 +59,20 @@ async function main() {
       onlyViolations: options.onlyViolations,
     };
 
+    // Merge CLI options with config, respecting config file defaults for boolean flags
     config = ConfigLoader.mergeWithCli(config, {
-      ...cliOptions,
-      // Only override config with CLI options if they were explicitly provided
-      // (not undefined). This allows config file defaults to work properly.
+      maxMajor: cliOptions.maxMajor,
+      maxMinor: cliOptions.maxMinor,
+      maxPatch: cliOptions.maxPatch,
+      include: cliOptions.include,
+      exclude: cliOptions.exclude,
+      registry: cliOptions.registry,
+      format: cliOptions.format,
       verbose: cliOptions.verbose !== undefined ? cliOptions.verbose : config.verbose,
       failOnAny: cliOptions.failOnAny !== undefined ? cliOptions.failOnAny : config.failOnAny,
       transitive: cliOptions.transitive !== undefined ? cliOptions.transitive : config.transitive,
       onlyViolations: cliOptions.onlyViolations !== undefined ? cliOptions.onlyViolations : config.onlyViolations,
+      cacheTTL: cliOptions.cacheTTL,
     });
 
     const validation = ConfigLoader.validate(config);
