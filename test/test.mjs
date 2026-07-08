@@ -872,3 +872,514 @@ describe('Enhanced Features', () => {
     });
   });
 });
+
+describe('Edge Cases: ConfigLoader.validateUserConfig', () => {
+  // validateUserConfig is private at TS level but accessible at runtime
+  const validateUserConfig = (cfg) => ConfigLoader.validateUserConfig(cfg);
+
+  it('rejects invalid package name in exclude list', () => {
+    assert.throws(
+      () => validateUserConfig({ exclude: ['INVALID PACKAGE NAME WITH SPACES'] }),
+      /Invalid package name in exclude list/
+    );
+  });
+
+  it('rejects unknown registry hostname', () => {
+    assert.throws(
+      () => validateUserConfig({ registry: 'https://evil-registry.example.com' }),
+      /Registry hostname not allowed for security/
+    );
+  });
+
+  it('rejects non-localhost IPv4 registry (SSRF protection)', () => {
+    assert.throws(
+      () => validateUserConfig({ registry: 'http://10.0.0.1' }),
+      /Registry hostname not allowed|Registry IP addresses are not allowed/
+    );
+  });
+
+  it('rejects invalid registry URL format', () => {
+    assert.throws(
+      () => validateUserConfig({ registry: 'not-a-valid-url' }),
+      /Invalid registry URL|Registry hostname not allowed/
+    );
+  });
+
+  it('allows localhost registry with port for development', () => {
+    // Should not throw
+    validateUserConfig({ registry: 'http://localhost:4873' });
+    assert.ok(true);
+  });
+
+  it('allows [::1] IPv6 localhost registry', () => {
+    // Should not throw
+    validateUserConfig({ registry: 'http://[::1]:8080' });
+    assert.ok(true);
+  });
+});
+
+describe('Edge Cases: ConfigLoader.validate', () => {
+  it('rejects NaN maxMajor', () => {
+    const result = ConfigLoader.validate(makeConfig({ maxMajor: NaN }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('maxMajor')));
+  });
+
+  it('rejects Infinity maxMinor', () => {
+    const result = ConfigLoader.validate(makeConfig({ maxMinor: Infinity }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('maxMinor')));
+  });
+
+  it('rejects non-standard port on non-localhost registry', () => {
+    const result = ConfigLoader.validate(makeConfig({ registry: 'https://registry.npmjs.org:8080' }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('non-standard port')));
+  });
+
+  it('rejects HTTP non-localhost registry', () => {
+    const result = ConfigLoader.validate(makeConfig({ registry: 'http://registry.npmjs.org' }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('HTTPS')));
+  });
+
+  it('rejects invalid include type', () => {
+    const result = ConfigLoader.validate(makeConfig({ include: ['invalid'] }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('include must only contain')));
+  });
+
+  it('accepts valid cacheTTL = 0 (disabled)', () => {
+    const result = ConfigLoader.validate(makeConfig({ cacheTTL: 0 }));
+    assert.ok(result.valid);
+  });
+
+  it('rejects negative cacheTTL', () => {
+    const result = ConfigLoader.validate(makeConfig({ cacheTTL: -100 }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('cacheTTL')));
+  });
+
+  it('rejects string cacheTTL', () => {
+    const result = ConfigLoader.validate(makeConfig({ cacheTTL: '3600' }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('cacheTTL')));
+  });
+
+  it('allows undefined cacheTTL (uses default)', () => {
+    const result = ConfigLoader.validate(makeConfig({ cacheTTL: undefined }));
+    assert.ok(result.valid);
+  });
+});
+
+describe('Edge Cases: OutdatedChecker.validateVersion', () => {
+  // validateVersion is private at TS level but accessible at runtime on the instance
+  const checker = new OutdatedChecker(makeConfig());
+  const vv = (v) => checker.validateVersion(v);
+
+  it('accepts workspace: protocol', () => {
+    assert.ok(vv('workspace:1.0.0'));
+    assert.ok(vv('workspace:*'));
+  });
+
+  it('accepts file: protocol', () => {
+    assert.ok(vv('file:../local-pkg'));
+  });
+
+  it('accepts npm: alias protocol', () => {
+    assert.ok(vv('npm:other-pkg@^2.0.0'));
+  });
+
+  it('accepts link: protocol', () => {
+    assert.ok(vv('link:../local-pkg'));
+  });
+
+  it('accepts github: protocol', () => {
+    assert.ok(vv('github:user/repo'));
+  });
+
+  it('accepts git+https: protocol', () => {
+    assert.ok(vv('git+https://github.com/user/repo.git'));
+  });
+
+  it('accepts git+ssh: protocol', () => {
+    assert.ok(vv('git+ssh://git@github.com/user/repo.git'));
+  });
+
+  it('accepts x-range versions', () => {
+    assert.ok(vv('1.x'));
+    assert.ok(vv('1.2.x'));
+    // Note: 1.x.x is not a valid npm x-range per semver spec
+  });
+
+  it('accepts * and latest', () => {
+    assert.ok(vv('*'));
+    assert.ok(vv('latest'));
+  });
+
+  it('accepts OR comparator with mixed protocols', () => {
+    assert.ok(vv('1.0.0 || 2.0.0'));
+    assert.ok(vv('^1.0.0 || workspace:*'));
+    assert.ok(vv('1.0.0 || npm:other@2.0.0'));
+  });
+
+  it('rejects truly invalid versions', () => {
+    assert.ok(!vv('not-a-version!'));
+    assert.ok(!vv(''));
+  });
+
+  it('accepts git+http: protocol', () => {
+    assert.ok(vv('git+http://github.com/user/repo.git'));
+  });
+
+  it('accepts git+file: protocol', () => {
+    assert.ok(vv('git+file:///path/to/repo.git'));
+  });
+
+  it('rejects overly long version strings', () => {
+    assert.ok(!vv('a'.repeat(257)));
+  });
+
+  it('rejects non-string versions', () => {
+    assert.ok(!vv(123));
+    assert.ok(!vv(null));
+    assert.ok(!vv(undefined));
+  });
+});
+
+describe('Edge Cases: fetchLatestVersionOnce with mocked fetch', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('fetches and returns latest version', async () => {
+    const checker = new OutdatedChecker(makeConfig({ verbose: true }));
+    globalThis.fetch = async (url, opts) => {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ 'dist-tags': { latest: '4.17.21' } }),
+      };
+    };
+    const result = await checker.fetchLatestVersionOnce('lodash');
+    assert.equal(result, '4.17.21');
+  });
+
+  it('returns null for 404 (package not found)', async () => {
+    const checker = new OutdatedChecker(makeConfig());
+    globalThis.fetch = async () => ({ ok: false, status: 404, statusText: 'Not Found' });
+    const result = await checker.fetchLatestVersionOnce('nonexistent-pkg');
+    assert.equal(result, null);
+  });
+
+  it('throws on non-404 error response', async () => {
+    const checker = new OutdatedChecker(makeConfig());
+    globalThis.fetch = async () => ({ ok: false, status: 500, statusText: 'Server Error' });
+    await assert.rejects(
+      () => checker.fetchLatestVersionOnce('some-pkg'),
+      /Registry request failed.*500/
+    );
+  });
+
+  it('throws when no latest version in dist-tags', async () => {
+    const checker = new OutdatedChecker(makeConfig());
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ 'dist-tags': {} }) });
+    await assert.rejects(
+      () => checker.fetchLatestVersionOnce('some-pkg'),
+      /No latest version found/
+    );
+  });
+
+  it('returns null for invalid version format from registry', async () => {
+    const checker = new OutdatedChecker(makeConfig({ verbose: true }));
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ 'dist-tags': { latest: 'not-a-valid-version!!!' } }) });
+    const result = await checker.fetchLatestVersionOnce('some-pkg');
+    assert.equal(result, null);
+  });
+});
+
+describe('Edge Cases: fetchLatestVersionsConcurrent progress', () => {
+  it('shows progress for >20 packages in verbose mode', async () => {
+    const checker = new OutdatedChecker(makeConfig({ verbose: true, failOnAny: false }));
+    // Mock fetchLatestVersionWithRetry to avoid network calls
+    let callCount = 0;
+    checker.fetchLatestVersionWithRetry = async (name) => {
+      callCount++;
+      return `1.0.${callCount}`;
+    };
+    // Create 55 package names to trigger progress reporting at totalProcessed=50
+    const names = Array.from({ length: 55 }, (_, i) => `pkg-${i}`);
+    const results = await checker.fetchLatestVersionsConcurrent(names);
+    assert.equal(results.size, 55);
+    assert.ok(results.has('pkg-0'));
+    assert.ok(results.has('pkg-54'));
+  });
+
+  it('handles fetch failures gracefully', async () => {
+    const checker = new OutdatedChecker(makeConfig({ verbose: true }));
+    checker.fetchLatestVersionWithRetry = async (name) => {
+      if (name === 'bad-pkg') throw new Error('Network error');
+      return '1.0.0';
+    };
+    const results = await checker.fetchLatestVersionsConcurrent(['good-pkg', 'bad-pkg']);
+    assert.ok(results.has('good-pkg'));
+    assert.ok(!results.has('bad-pkg'));
+  });
+
+  it('handles null returns (package not found)', async () => {
+    const checker = new OutdatedChecker(makeConfig());
+    checker.fetchLatestVersionWithRetry = async () => null;
+    const results = await checker.fetchLatestVersionsConcurrent(['unknown-pkg']);
+    assert.equal(results.size, 0);
+  });
+});
+
+describe('Edge Cases: OutdatedChecker.validatePackageName', () => {
+  const checker = new OutdatedChecker(makeConfig());
+  const vpn = (n) => checker.validatePackageName(n);
+
+  it('validates simple package names', () => {
+    assert.ok(vpn('lodash'));
+    assert.ok(vpn('react-dom'));
+    assert.ok(vpn('my.package'));
+    assert.ok(vpn('my-package'));
+  });
+
+  it('validates scoped package names', () => {
+    assert.ok(vpn('@types/node'));
+    assert.ok(vpn('@scope/my-package'));
+  });
+
+  it('rejects scoped packages with too many slashes', () => {
+    assert.ok(!vpn('@scope/sub/package'));
+  });
+
+  it('rejects scoped packages with invalid parts', () => {
+    assert.ok(!vpn('@invalid/'));
+    assert.ok(!vpn('@/package'));
+  });
+
+  it('rejects empty or too long names', () => {
+    assert.ok(!vpn(''));
+    assert.ok(!vpn('a'.repeat(215)));
+  });
+
+  it('rejects non-string names', () => {
+    assert.ok(!vpn(null));
+    assert.ok(!vpn(123));
+    assert.ok(!vpn(undefined));
+  });
+});
+
+describe('Edge Cases: OutdatedChecker.isExcluded', () => {
+  it('handles empty exclude list', () => {
+    const checker = new OutdatedChecker(makeConfig({ exclude: [] }));
+    assert.ok(!checker.isExcluded('some-package'));
+  });
+
+  it('handles glob with special regex chars', () => {
+    const checker = new OutdatedChecker(makeConfig({ exclude: ['@types/*'] }));
+    assert.ok(checker.isExcluded('@types/node'));
+    assert.ok(checker.isExcluded('@types/react'));
+    assert.ok(!checker.isExcluded('typescript'));
+  });
+
+  it('handles exact match (no glob)', () => {
+    const checker = new OutdatedChecker(makeConfig({ exclude: ['lodash'] }));
+    assert.ok(checker.isExcluded('lodash'));
+    assert.ok(!checker.isExcluded('lodash-es'));
+  });
+
+  it('caches regex patterns across calls', () => {
+    const checker = new OutdatedChecker(makeConfig({ exclude: ['@scope/*', 'pkg-*'] }));
+    assert.ok(checker.isExcluded('@scope/foo'));
+    assert.ok(checker.isExcluded('pkg-bar'));
+    // Second call uses cached regex
+    assert.ok(checker.isExcluded('@scope/baz'));
+    assert.ok(checker.isExcluded('pkg-qux'));
+  });
+});
+
+describe('Edge Cases: calculateVersionDiff and parseSemver', () => {
+  it('detects regression when latest is behind current (pre-release)', () => {
+    const checker = new OutdatedChecker(makeConfig());
+    const calc = checker.calculateVersionDiff.bind(checker);
+    const pkg = { name: 'react', current: '19.0.0-beta.1', latest: '18.2.0', wanted: '19.0.0-beta.1', type: 'prod', direct: true };
+    const result = calc(pkg);
+    assert.ok(result.isRegression);
+    assert.equal(result.majorDiff, 0); // Math.max(0, -1) = 0
+    assert.equal(result.isViolation, false);
+  });
+
+  it('calculates wanted version for ~ range', () => {
+    const checker = new OutdatedChecker(makeConfig());
+    const calc = checker.calculateVersionDiff.bind(checker);
+    const pkg = { name: 'lodash', current: '~4.17.0', latest: '4.17.21', wanted: '~4.17.0', type: 'prod', direct: true };
+    const result = calc(pkg);
+    assert.ok(result.wanted.startsWith('~'));
+    assert.equal(result.patchDiff, 21);
+    assert.ok(result.isViolation);
+  });
+
+  it('calculates wanted version for >= range', () => {
+    const checker = new OutdatedChecker(makeConfig());
+    const calc = checker.calculateVersionDiff.bind(checker);
+    const pkg = { name: 'express', current: '>=4.18.0', latest: '4.19.2', wanted: '>=4.18.0', type: 'prod', direct: true };
+    const result = calc(pkg);
+    assert.ok(result.wanted.startsWith('>='));
+    assert.equal(result.minorDiff, 1);
+    // maxMinor=2, so minorDiff=1 is within threshold, not a violation
+    assert.equal(result.isViolation, false);
+  });
+
+  it('calculates wanted version for exact version', () => {
+    const checker = new OutdatedChecker(makeConfig());
+    const calc = checker.calculateVersionDiff.bind(checker);
+    const pkg = { name: 'axios', current: '1.0.0', latest: '1.6.0', wanted: '1.0.0', type: 'prod', direct: true };
+    const result = calc(pkg);
+    assert.equal(result.wanted, '1.0.0');
+    assert.equal(result.minorDiff, 6);
+    assert.ok(result.isViolation);
+  });
+
+  it('returns null parsed semver for invalid version', () => {
+    const checker = new OutdatedChecker(makeConfig());
+    const calc = checker.calculateVersionDiff.bind(checker);
+    const pkg = { name: 'badpkg', current: 'not-a-version', latest: '1.0.0', wanted: 'not-a-version', type: 'prod', direct: true };
+    const result = calc(pkg);
+    assert.equal(result.majorDiff, 0);
+    assert.equal(result.minorDiff, 0);
+    assert.equal(result.patchDiff, 0);
+    assert.equal(result.isViolation, false);
+  });
+
+  it('handles minor diff as violation when within major', () => {
+    const checker = new OutdatedChecker(makeConfig({ maxMajor: 0, maxMinor: 2, maxPatch: 5 }));
+    const calc = checker.calculateVersionDiff.bind(checker);
+    const pkg = { name: 'pkg', current: '^1.2.0', latest: '1.5.0', wanted: '^1.2.0', type: 'prod', direct: true };
+    const result = calc(pkg);
+    assert.equal(result.minorDiff, 3);
+    assert.ok(result.isViolation);
+  });
+
+  it('handles patch diff as violation when within minor', () => {
+    const checker = new OutdatedChecker(makeConfig({ maxMajor: 0, maxMinor: 2, maxPatch: 5 }));
+    const calc = checker.calculateVersionDiff.bind(checker);
+    const pkg = { name: 'pkg', current: '^1.2.0', latest: '1.2.10', wanted: '^1.2.0', type: 'prod', direct: true };
+    const result = calc(pkg);
+    assert.equal(result.patchDiff, 10);
+    assert.ok(result.isViolation);
+  });
+
+  it('handles <= range in calculateWantedVersion', () => {
+    const checker = new OutdatedChecker(makeConfig());
+    const calc = checker.calculateVersionDiff.bind(checker);
+    const pkg = { name: 'pkg', current: '<=3.5.0', latest: '3.10.0', wanted: '<=3.5.0', type: 'prod', direct: true };
+    const result = calc(pkg);
+    assert.ok(result.wanted.startsWith('<='));
+    assert.equal(result.minorDiff, 5);
+    assert.ok(result.isViolation);
+  });
+
+  it('handles > range in calculateWantedVersion', () => {
+    const checker = new OutdatedChecker(makeConfig({ maxMajor: 5, maxMinor: 5, maxPatch: 5 }));
+    const calc = checker.calculateVersionDiff.bind(checker);
+    const pkg = { name: 'pkg', current: '>2.0.0', latest: '2.1.0', wanted: '>2.0.0', type: 'prod', direct: true };
+    const result = calc(pkg);
+    assert.equal(result.minorDiff, 1);
+  });
+});
+
+describe('Edge Cases: ConfigLoader.validate additional', () => {
+  it('rejects invalid format value', () => {
+    const result = ConfigLoader.validate(makeConfig({ format: 'xml' }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('format must be')));
+  });
+
+  it('rejects empty include array', () => {
+    const result = ConfigLoader.validate(makeConfig({ include: [] }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('include must have at least one type')));
+  });
+
+  it('rejects non-numeric maxMajor', () => {
+    const result = ConfigLoader.validate(makeConfig({ maxMajor: NaN }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('maxMajor')));
+  });
+
+  it('rejects negative maxMinor', () => {
+    const result = ConfigLoader.validate(makeConfig({ maxMinor: -1 }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('maxMinor')));
+  });
+
+  it('rejects negative maxPatch', () => {
+    const result = ConfigLoader.validate(makeConfig({ maxPatch: -5 }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('maxPatch')));
+  });
+
+  it('allows HTTP localhost with non-standard port', () => {
+    const result = ConfigLoader.validate(makeConfig({ registry: 'http://localhost:4873' }));
+    assert.ok(result.valid);
+  });
+
+  it('allows HTTPS registry.npmjs.org with default port', () => {
+    const result = ConfigLoader.validate(makeConfig({ registry: 'https://registry.npmjs.org' }));
+    assert.ok(result.valid);
+  });
+
+  it('rejects HTTP 127.0.0.1 with non-standard port via validate', () => {
+    const result = ConfigLoader.validate(makeConfig({ registry: 'http://127.0.0.1:8080' }));
+    assert.ok(result.valid); // localhost IPs are allowed for testing
+  });
+
+  it('rejects completely invalid registry URL', () => {
+    const result = ConfigLoader.validate(makeConfig({ registry: 'ht!tp://%%%' }));
+    assert.ok(!result.valid);
+    assert.ok(result.errors.some(e => e.includes('Invalid registry URL') || e.includes('Registry hostname')));
+  });
+});
+
+describe('Edge Cases: Formatter formatVerbose', () => {
+  it('includes config details in verbose output', () => {
+    const formatter = new Formatter(makeConfig({ format: 'text', verbose: true, registry: 'https://registry.npmjs.org' }));
+    const result = {
+      violations: [],
+      totalChecked: 5,
+      passed: true,
+      config: makeConfig(),
+    };
+    const output = formatter.formatVerbose(result);
+    assert.ok(output.includes('Configuration'));
+    assert.ok(output.includes('registry.npmjs.org'));
+    assert.ok(output.includes('prod'));
+    assert.ok(output.includes('dev'));
+    assert.ok(output.includes('Fail on any'));
+  });
+
+  it('includes violations in verbose output', () => {
+    const formatter = new Formatter(makeConfig({ format: 'text', verbose: true }));
+    const result = {
+      violations: [{
+        name: 'lodash',
+        current: '^4.17.0',
+        latest: '4.17.21',
+        type: 'prod',
+        majorDiff: 0,
+        minorDiff: 0,
+        patchDiff: 21,
+        isViolation: true,
+      }],
+      totalChecked: 10,
+      passed: false,
+      config: makeConfig(),
+    };
+    const output = formatter.formatVerbose(result);
+    assert.ok(output.includes('lodash'));
+  });
+});

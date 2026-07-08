@@ -1,5 +1,9 @@
 {
   "versions": {
+    "lodash": {
+      "version": "4.17.21",
+      "timestamp": 1783509733808
+    },
     "cli-table3": {
       "version": "0.6.5",
       "timestamp": 1781270352983
@@ -57,6 +61,6 @@
       "timestamp": 1781270355913
     }
   },
-  "timestamp": 1781270355913,
+  "timestamp": 1783509744780,
   "maxAge": 3600000
 }

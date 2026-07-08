@@ -14,3 +14,18 @@ __pycache__/
 .venv/
 *.egg-info/
 .mypy_cache/
+
+# Prevent tsc from committing compiled output alongside source
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map
+src/**/*.d.ts.map
+
+# Vitest (removed as dependency, prevent re-adding config)
+vitest.config.*
+
+# Compiled tsup config artifacts
+tsup.config.d.ts
+tsup.config.d.ts.map
+tsup.config.js
+tsup.config.js.map
