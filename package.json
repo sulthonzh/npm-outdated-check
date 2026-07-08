@@ -28,7 +28,7 @@
     "pretest": "npm run build",
     "test": "node --test test/test.mjs",
     "test:watch": "node --test --watch test/test.mjs",
-    "lint": "eslint src --ext .ts",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint 'src/**/*.ts'",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build && npm test"

@@ -254,21 +254,30 @@ return;
     // lockfileVersion 2/3: use "packages" object (default since npm v7+)
     // Keys are node_modules paths: "node_modules/lodash", "node_modules/@types/node"
     if (lockJson.packages && typeof lockJson.packages === 'object') {
-      const rootPkg = (lockJson.packages as Record<string, any>)[''] || {};
+      type LockfilePackage = { link?: boolean; version?: string; dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+    const rootPkg = (lockJson.packages as Record<string, LockfilePackage>)[''] || {};
       const rootDeps = rootPkg.dependencies || {};
       const rootDevDeps = rootPkg.devDependencies || {};
 
-      for (const [key, rawInfo] of Object.entries(lockJson.packages as Record<string, any>)) {
+      for (const [key, rawInfo] of Object.entries(lockJson.packages as Record<string, LockfilePackage>)) {
         // Skip root package entry
-        if (key === '') continue;
+        if (key === '') {
+continue;
+}
 
         // Extract package name from node_modules path
         const name = this.extractPackageNameFromLockPath(key);
-        if (!name) continue;
-        if (seen.has(name)) continue;
+        if (!name) {
+continue;
+}
+        if (seen.has(name)) {
+continue;
+}
 
         // Skip linked packages (workspace symlinks)
-        if (rawInfo?.link) continue;
+        if (rawInfo?.link) {
+continue;
+}
 
         // Validate package name for security
         if (!this.validatePackageName(name)) {

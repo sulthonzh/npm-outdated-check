@@ -1,9 +1,12 @@
 ## v1.1.1 (Unreleased)
 
 ### Fixed
-- Fixed ESLint config: added `root: true` to prevent parent config conflicts.
+- Fixed ESLint config: `lint` script now uses `ESLINT_USE_FLAT_CONFIG=false` to prevent parent repo's flat config from being picked up by ESLint 8.
 - Fixed `validateVersion` regex: `git+https:` and `git+ssh:` protocols now correctly validated.
 - Disabled `no-console` ESLint rule for CLI tool (intentional console usage).
+- Replaced `Record<string, any>` with proper `LockfilePackage` type in checker.ts (type safety).
+- Auto-fixed missing curly braces on 4 `if` statements (ESLint `curly` rule).
+- Replaced `--ext .ts` lint flag with `'src/**/*.ts'` glob pattern (ESLint 8 compatibility).
 
 ### Added
 - CONTRIBUTING.md with development workflow and guidelines.
