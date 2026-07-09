@@ -341,6 +341,42 @@ describe('ConfigLoader', () => {
     assert.equal(merged.maxPatch, 5);
   });
 
+  it('mergeWithCli skips undefined values, preserving config file defaults', () => {
+    const baseConfig = {
+      maxMajor: 0,
+      maxMinor: 5,
+      maxPatch: 10,
+      include: ['prod'],
+      exclude: ['lodash'],
+      registry: 'https://registry.npmjs.org',
+      format: 'json',
+      failOnAny: false,
+      verbose: true,
+      onlyViolations: true,
+      transitive: false,
+      cacheTTL: 7200000,
+    };
+    // Simulate CLI options where only some are explicitly provided
+    const merged = ConfigLoader.mergeWithCli(baseConfig, {
+      maxMajor: 1,
+      maxMinor: undefined,
+      format: undefined,
+      registry: undefined,
+      verbose: undefined,
+    });
+    // Explicitly provided values override config
+    assert.equal(merged.maxMajor, 1);
+    // Undefined values do NOT overwrite config file defaults
+    assert.equal(merged.maxMinor, 5);
+    assert.equal(merged.format, 'json');
+    assert.equal(merged.registry, 'https://registry.npmjs.org');
+    assert.equal(merged.verbose, true);
+    assert.equal(merged.failOnAny, false);
+    assert.equal(merged.cacheTTL, 7200000);
+    assert.deepEqual(merged.include, ['prod']);
+    assert.deepEqual(merged.exclude, ['lodash']);
+  });
+
   it('validates valid config', () => {
     const validConfig = makeConfig();
     const result = ConfigLoader.validate(validConfig);

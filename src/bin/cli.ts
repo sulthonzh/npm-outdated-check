@@ -16,13 +16,13 @@ program
   .name('npm-outdated-check')
   .description('CI-friendly dependency version threshold checker')
   .version(VERSION)
-  .option('--max-major <n>', 'Maximum major version drift', '0')
-  .option('--max-minor <n>', 'Maximum minor version drift', '2')
-  .option('--max-patch <n>', 'Maximum patch version drift', '5')
+  .option('--max-major <n>', 'Maximum major version drift')
+  .option('--max-minor <n>', 'Maximum minor version drift')
+  .option('--max-patch <n>', 'Maximum patch version drift')
   .option('--dep <types>', 'Include dependencies (prod,dev,both)', 'both')
   .option('--exclude <packages>', 'Exclude packages (comma-separated)', '')
-  .option('--registry <url>', 'npm registry URL', 'https://registry.npmjs.org')
-  .option('--format <fmt>', 'Output format (text,json,table,markdown)', 'text')
+  .option('--registry <url>', 'npm registry URL')
+  .option('--format <fmt>', 'Output format (text,json,table,markdown)')
   .option('--config <path>', 'Path to config file')
   .option('--verbose', 'Verbose output')
   .option('--fail-on-any', 'Fail if any violations found')
@@ -30,7 +30,7 @@ program
   .option('--transitive', 'Include transitive dependencies')
   .option('--no-transitive', 'Exclude transitive dependencies')
   .option('--path <dir>', 'Project directory (default: cwd)')
-  .option('--cache-ttl <ms>', 'Cache time-to-live in milliseconds (default: 3600000)', '3600000')
+  .option('--cache-ttl <ms>', 'Cache time-to-live in milliseconds (default: 3600000)')
   .option('--disable-cache', 'Disable caching completely')
   .option('--only-violations', 'Show only violations (skip passing dependencies)')
   .parse();
@@ -44,36 +44,54 @@ async function main() {
     const includeTypes: ('prod' | 'dev')[] = options.dep === 'both' ? ['prod', 'dev'] : options.dep === 'prod' ? ['prod'] : ['dev'];
     const exclude = options.exclude ? options.exclude.split(',').map((s: string) => s.trim()) : [];
 
-    const cliOptions: Partial<Config> = {
-      maxMajor: parseInt(options.maxMajor, 10),
-      maxMinor: parseInt(options.maxMinor, 10),
-      maxPatch: parseInt(options.maxPatch, 10),
-      include: includeTypes,
-      exclude,
-      registry: options.registry,
-      format: options.format,
-      verbose: options.verbose,
-      failOnAny: options.failOnAny,
-      transitive: options.transitive,
-      cacheTTL: options.disableCache ? 0 : parseInt(options.cacheTtl, 10),
-      onlyViolations: options.onlyViolations,
-    };
+    // Only pass CLI options that were explicitly provided by the user.
+    // Commander sets defaults for options with default values, so we can't distinguish
+    // "user passed --max-minor 2" from "user didn't pass --max-minor". By removing
+    // commander defaults, undefined means "not provided" and mergeWithCli skips it.
+    const cliOptions: Partial<Config> = {};
 
-    // Merge CLI options with config, respecting config file defaults for boolean flags
-    config = ConfigLoader.mergeWithCli(config, {
-      maxMajor: cliOptions.maxMajor,
-      maxMinor: cliOptions.maxMinor,
-      maxPatch: cliOptions.maxPatch,
-      include: cliOptions.include,
-      exclude: cliOptions.exclude,
-      registry: cliOptions.registry,
-      format: cliOptions.format,
-      verbose: cliOptions.verbose !== undefined ? cliOptions.verbose : config.verbose,
-      failOnAny: cliOptions.failOnAny !== undefined ? cliOptions.failOnAny : config.failOnAny,
-      transitive: cliOptions.transitive !== undefined ? cliOptions.transitive : config.transitive,
-      onlyViolations: cliOptions.onlyViolations !== undefined ? cliOptions.onlyViolations : config.onlyViolations,
-      cacheTTL: cliOptions.cacheTTL,
-    });
+    if (options.maxMajor !== undefined) {
+      cliOptions.maxMajor = parseInt(options.maxMajor, 10);
+    }
+    if (options.maxMinor !== undefined) {
+      cliOptions.maxMinor = parseInt(options.maxMinor, 10);
+    }
+    if (options.maxPatch !== undefined) {
+      cliOptions.maxPatch = parseInt(options.maxPatch, 10);
+    }
+    // --dep defaults to 'both' — only override if user explicitly passed it
+    // Commander doesn't distinguish, so we check against the default
+    if (options.dep !== 'both') {
+      cliOptions.include = includeTypes;
+    }
+    if (options.exclude) {
+      cliOptions.exclude = exclude;
+    }
+    if (options.registry !== undefined) {
+      cliOptions.registry = options.registry;
+    }
+    if (options.format !== undefined) {
+      cliOptions.format = options.format as Config['format'];
+    }
+    if (options.verbose !== undefined) {
+      cliOptions.verbose = options.verbose;
+    }
+    if (options.failOnAny !== undefined) {
+      cliOptions.failOnAny = options.failOnAny;
+    }
+    if (options.transitive !== undefined) {
+      cliOptions.transitive = options.transitive;
+    }
+    if (options.onlyViolations !== undefined) {
+      cliOptions.onlyViolations = options.onlyViolations;
+    }
+    if (options.disableCache) {
+      cliOptions.cacheTTL = 0;
+    } else if (options.cacheTtl !== undefined) {
+      cliOptions.cacheTTL = parseInt(options.cacheTtl, 10);
+    }
+
+    config = ConfigLoader.mergeWithCli(config, cliOptions);
 
     const validation = ConfigLoader.validate(config);
     if (!validation.valid) {

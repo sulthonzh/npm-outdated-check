@@ -145,7 +145,15 @@ export class ConfigLoader {
   }
 
   static mergeWithCli(config: Config, cliOptions: Partial<Config>): Config {
-    return { ...config, ...cliOptions };
+    const merged = { ...config };
+    // Only overwrite with CLI options that were explicitly provided (not undefined)
+    // This prevents commander's default values from clobbering config file settings
+    for (const [key, value] of Object.entries(cliOptions)) {
+      if (value !== undefined) {
+        (merged as Record<string, unknown>)[key] = value;
+      }
+    }
+    return merged;
   }
 
   static validate(config: Config): { valid: boolean; errors: string[] } {
