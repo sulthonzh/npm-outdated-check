@@ -1384,6 +1384,27 @@ describe('Edge Cases: ConfigLoader.validate additional', () => {
     assert.ok(!result.valid);
     assert.ok(result.errors.some(e => e.includes('Invalid registry URL') || e.includes('Registry hostname')));
   });
+
+  it('accepts scoped package in exclude list (@types/node)', () => {
+    // README documents @types/* as valid exclude pattern
+    assert.doesNotThrow(() => ConfigLoader.validateUserConfig({ exclude: ['@types/node'] }));
+  });
+
+  it('accepts glob pattern in exclude list (@types/*)', () => {
+    assert.doesNotThrow(() => ConfigLoader.validateUserConfig({ exclude: ['@types/*'] }));
+  });
+
+  it('accepts glob pattern in exclude list (pkg-*)', () => {
+    assert.doesNotThrow(() => ConfigLoader.validateUserConfig({ exclude: ['pkg-*'] }));
+  });
+
+  it('rejects path traversal in exclude list', () => {
+    assert.throws(() => ConfigLoader.validateUserConfig({ exclude: ['../../etc/passwd'] }));
+  });
+
+  it('rejects empty string in exclude list', () => {
+    assert.throws(() => ConfigLoader.validateUserConfig({ exclude: [''] }));
+  });
 });
 
 describe('Edge Cases: Formatter formatVerbose', () => {

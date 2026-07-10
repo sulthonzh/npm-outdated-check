@@ -2,8 +2,9 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import type { Config } from '../types/config.js';
 
-// Valid npm package name regex (simplified for security)
-const PACKAGE_NAME_REGEX = /^(@[a-zA-Z0-9][\w.-]*[a-zA-Z0-9]|[a-zA-Z0-9][\w.-]*[a-zA-Z0-9])$/;
+// Valid npm package name or glob exclude pattern
+// Supports: plain names (lodash), scoped (@scope/pkg), globs (pkg-*, @scope/*)
+const PACKAGE_NAME_REGEX = /^(?:@[a-zA-Z0-9][\w.-]*\/[a-zA-Z0-9\w.*-]+|[a-zA-Z0-9][\w.*-]+)$/;
 
 // Allowed registry domains for security
 const ALLOWED_REGISTRY_DOMAINS = [
