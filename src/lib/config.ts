@@ -216,7 +216,7 @@ errors.push('include must have at least one type');
       // Prevent non-standard ports for security, but allow localhost for development
       if (url.port && url.port !== '443' && url.port !== '80') {
         // Allow localhost with any port for development/testing
-        if (!hostname.startsWith('localhost') && !hostname.startsWith('127.0.0.1') && !hostname.startsWith('[::1]')) {
+        if (hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '[::1]') {
           errors.push(`Registry URL uses non-standard port: ${url.port}`);
         }
       }

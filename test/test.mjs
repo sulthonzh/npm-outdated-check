@@ -421,6 +421,11 @@ describe('ConfigLoader', () => {
     assert.equal(result.valid, true);
   });
 
+  it('allows IPv6 localhost registry with custom port', () => {
+    const result = ConfigLoader.validate(makeConfig({ registry: 'http://[::1]:4873' }));
+    assert.equal(result.valid, true);
+  });
+
   it('rejects non-localhost IP registry (SSRF protection)', () => {
     const result = ConfigLoader.validate(makeConfig({ registry: 'https://192.168.1.1' }));
     assert.equal(result.valid, false);
