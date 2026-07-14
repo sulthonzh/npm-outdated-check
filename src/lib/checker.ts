@@ -88,14 +88,25 @@ return null;
     if (this.config.cacheTTL === 0) {
 return;
 }
-    // Wait for any in-flight deferred saveCache() to finish before checking
-    await this.pendingSavePromise;
 
-    // If more writes accumulated after the deferred save started, flush them
-    if (this.pendingWrites > 0) {
-      this.pendingWrites = 0;
-      this.flushScheduled = false;
-      await this.saveCache();
+    // Keep flushing until no pending writes remain
+    let hasPendingWrites = true;
+    while (hasPendingWrites) {
+      // Wait for any in-flight deferred saveCache() to finish
+      await this.pendingSavePromise;
+
+      // Check if more writes accumulated after the deferred save started
+      // Use a local variable to capture the count before clearing to avoid race
+      const writesToFlush = this.pendingWrites;
+      if (writesToFlush > 0) {
+        // Clear pendingWrites and flushScheduled before saving
+        // so new writes will schedule a new deferred save
+        this.pendingWrites = 0;
+        this.flushScheduled = false;
+        await this.saveCache();
+      } else {
+        hasPendingWrites = false;
+      }
     }
   }
 
@@ -114,7 +125,8 @@ return;
       this.flushScheduled = true;
       // Schedule a flush after current async operations complete with debounce
       queueMicrotask(() => {
-        this.flushScheduled = false;
+        // Capture writes count and clear before saving
+        // flushScheduled remains true until save completes
         const writes = this.pendingWrites;
         this.pendingWrites = 0;
         if (writes > 0) {
@@ -124,9 +136,37 @@ return;
             setTimeout(() => {
               this.saveCache()
                 .catch(() => {})
-                .finally(() => resolve());
+                .finally(() => {
+                  // Reset flushScheduled after save completes
+                  this.flushScheduled = false;
+                  // If more writes arrived during the save, schedule another deferred save
+                  if (this.pendingWrites > 0) {
+                    queueMicrotask(() => {
+                      const moreWrites = this.pendingWrites;
+                      this.pendingWrites = 0;
+                      if (moreWrites > 0) {
+                        this.pendingSavePromise = new Promise<void>(resolve => {
+                          setTimeout(() => {
+                            this.saveCache()
+                              .catch(() => {})
+                              .finally(() => {
+                                this.flushScheduled = false;
+                                resolve();
+                              });
+                          }, 50);
+                        });
+                      } else {
+                        this.flushScheduled = false;
+                      }
+                    });
+                  }
+                  resolve();
+                });
             }, 50);
           });
+        } else {
+          // No writes to flush, reset flag immediately
+          this.flushScheduled = false;
         }
       });
     }
