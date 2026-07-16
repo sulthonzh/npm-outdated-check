@@ -51,13 +51,28 @@ async function main() {
     const cliOptions: Partial<Config> = {};
 
     if (options.maxMajor !== undefined) {
-      cliOptions.maxMajor = parseInt(options.maxMajor, 10);
+      const parsed = parseInt(options.maxMajor, 10);
+      if (!Number.isFinite(parsed)) {
+        console.error(`Invalid value for --max-major: "${options.maxMajor}" must be a number`);
+        process.exit(2);
+      }
+      cliOptions.maxMajor = parsed;
     }
     if (options.maxMinor !== undefined) {
-      cliOptions.maxMinor = parseInt(options.maxMinor, 10);
+      const parsed = parseInt(options.maxMinor, 10);
+      if (!Number.isFinite(parsed)) {
+        console.error(`Invalid value for --max-minor: "${options.maxMinor}" must be a number`);
+        process.exit(2);
+      }
+      cliOptions.maxMinor = parsed;
     }
     if (options.maxPatch !== undefined) {
-      cliOptions.maxPatch = parseInt(options.maxPatch, 10);
+      const parsed = parseInt(options.maxPatch, 10);
+      if (!Number.isFinite(parsed)) {
+        console.error(`Invalid value for --max-patch: "${options.maxPatch}" must be a number`);
+        process.exit(2);
+      }
+      cliOptions.maxPatch = parsed;
     }
     // --dep defaults to 'both' — only override if user explicitly passed it
     // Commander doesn't distinguish, so we check against the default
@@ -88,7 +103,12 @@ async function main() {
     if (options.disableCache) {
       cliOptions.cacheTTL = 0;
     } else if (options.cacheTtl !== undefined) {
-      cliOptions.cacheTTL = parseInt(options.cacheTtl, 10);
+      const parsed = parseInt(options.cacheTtl, 10);
+      if (!Number.isFinite(parsed)) {
+        console.error(`Invalid value for --cache-ttl: "${options.cacheTtl}" must be a number`);
+        process.exit(2);
+      }
+      cliOptions.cacheTTL = parsed;
     }
 
     config = ConfigLoader.mergeWithCli(config, cliOptions);

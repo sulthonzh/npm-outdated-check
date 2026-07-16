@@ -152,6 +152,18 @@ export class Formatter {
       }
     }
 
+    // For markdown format, append configuration as plain text (no ANSI codes)
+    if (this.config.format === 'markdown') {
+      let output = baseOutput;
+      output += `\n\n---\n\n**Configuration:**\n`;
+      output += `  - Registry: \`${this.config.registry}\`\n`;
+      output += `  - Include: ${this.config.include.join(', ')}\n`;
+      output += `  - Exclude: ${this.config.exclude.join(', ') || 'none'}\n`;
+      output += `  - Fail on any: ${this.config.failOnAny}\n`;
+      return output;
+    }
+
+    // For text and table formats, use chalk styling
     let output = baseOutput;
     output += `\n\n${chalk.dim('Configuration:')}`;
     output += `\n  Registry: ${this.config.registry}`;
