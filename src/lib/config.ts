@@ -226,7 +226,7 @@ errors.push('include must have at least one type');
     }
 
     // Validate cacheTTL
-    if (config.cacheTTL !== undefined && (typeof config.cacheTTL !== 'number' || config.cacheTTL < 0)) {
+    if (config.cacheTTL !== undefined && (typeof config.cacheTTL !== 'number' || !Number.isFinite(config.cacheTTL) || config.cacheTTL < 0)) {
       errors.push('cacheTTL must be a positive number or undefined');
     }
 

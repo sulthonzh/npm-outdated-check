@@ -133,7 +133,26 @@ export class Formatter {
   }
 
   formatVerbose(result: CheckResult): string {
-    let output = this.format(result);
+    const baseOutput = this.format(result);
+
+    // For JSON format, append configuration as a sibling field to produce valid JSON
+    if (this.config.format === 'json') {
+      try {
+        const parsed = JSON.parse(baseOutput);
+        parsed.configuration = {
+          registry: this.config.registry,
+          include: this.config.include,
+          exclude: this.config.exclude,
+          failOnAny: this.config.failOnAny,
+        };
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        // If base output isn't valid JSON (shouldn't happen), fall through
+        return baseOutput;
+      }
+    }
+
+    let output = baseOutput;
     output += `\n\n${chalk.dim('Configuration:')}`;
     output += `\n  Registry: ${this.config.registry}`;
     output += `\n  Include: ${this.config.include.join(', ')}`;
