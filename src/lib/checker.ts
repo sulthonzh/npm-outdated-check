@@ -137,28 +137,24 @@ return;
               this.saveCache()
                 .catch(() => {})
                 .finally(() => {
-                  // Reset flushScheduled after save completes
-                  this.flushScheduled = false;
-                  // If more writes arrived during the save, schedule another deferred save
+                  // Keep flushScheduled true until we decide if another save is needed.
+                  // Resetting it prematurely creates a window where cacheVersion() schedules
+                  // a parallel save chain, causing concurrent writes to the same file.
                   if (this.pendingWrites > 0) {
-                    queueMicrotask(() => {
-                      const moreWrites = this.pendingWrites;
-                      this.pendingWrites = 0;
-                      if (moreWrites > 0) {
-                        this.pendingSavePromise = new Promise<void>(resolve => {
-                          setTimeout(() => {
-                            this.saveCache()
-                              .catch(() => {})
-                              .finally(() => {
-                                this.flushScheduled = false;
-                                resolve();
-                              });
-                          }, 50);
-                        });
-                      } else {
-                        this.flushScheduled = false;
-                      }
+                    // More writes arrived during save — chain another save
+                    this.pendingWrites = 0;
+                    this.pendingSavePromise = new Promise<void>(resolve2 => {
+                      setTimeout(() => {
+                        this.saveCache()
+                          .catch(() => {})
+                          .finally(() => {
+                            this.flushScheduled = this.pendingWrites > 0;
+                            resolve2();
+                          });
+                      }, 50);
                     });
+                  } else {
+                    this.flushScheduled = false;
                   }
                   resolve();
                 });
@@ -530,6 +526,10 @@ continue;
       });
 
       if (!response.ok) {
+        // Consume body to release socket back to the connection pool.
+        // In Node.js undici, unconsumed response bodies keep sockets occupied
+        // until timeout, causing pool exhaustion under sustained errors.
+        try { await response.body?.cancel(); } catch {}
         if (response.status === 404) {
           // Package not found - this is a common case for invalid package names
           return null;
