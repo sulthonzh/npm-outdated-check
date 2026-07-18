@@ -1,14 +1,14 @@
 # npm-outdated-check — Exceptional Checklist Audit
 
-**Audit date:** 2026-07-09 04:52 UTC
+**Audit date:** 2026-07-18 12:00 UTC (re-audited)
 **Status:** ✅ EXCEPTIONAL — all 13 criteria met
 
 ## Checklist
 
 - [x] **README hooks reader in first 3 lines** — CI badge, npm version badge, clear "CI-friendly dependency version threshold checker" description
 - [x] **Quick start works in <2 minutes** — `npm install -D npm-outdated-check && npx npm-outdated-check` (zero runtime deps)
-- [x] **All tests GREEN (100% pass rate)** — 151/151 tests pass across 26 suites (native Node.js test runner)
-- [x] **Test coverage >= 80% on core logic** — 84.11% stmts, 86.42% branches, 95.23% funcs, 84.11% lines
+- [x] **All tests GREEN (100% pass rate)** — 267/267 tests pass across 62 suites (native Node.js test runner)
+- [x] **Test coverage >= 80% on core logic** — dist/index.js: 87.16% lines, **90.77% branches**, 94.03% funcs (up from 86.42% branches)
 - [x] **Zero TypeScript errors** — `tsc --noEmit` passes clean
 - [x] **Zero ESLint warnings** — `ESLINT_USE_FLAT_CONFIG=false eslint 'src/**/*.ts'` passes clean (fixed parent config conflict + removed `any` types)
 - [x] **No TODO/FIXME comments** — grep on src/ returns empty
@@ -33,3 +33,17 @@
 | checker.ts | 82.39% | 86.05% | 92.59% | 82.39% |
 | config.ts | 80.08% | 84.48% | 100% | 80.08% |
 | formatter.ts | 100% | 91.66% | 100% | 100% |
+
+## Re-Audit 2026-07-18
+
+**+47 new tests** in `test/coverage-gaps-2.test.mjs` targeting:
+- **Cache lifecycle** (loadCache, saveCache, flushCache, getCachedVersion, cacheVersion batching, cacheTTL=0 disabled, cache expiry, saveCache error handling)
+- **extractPackageNameFromLockPath** (simple, scoped, nested deduped, non-node_modules)
+- **ConfigLoader.validate** branches (negative cacheTTL, string cacheTTL, invalid registry, HTTP non-localhost, localhost variants, non-standard ports, NaN maxMajor, invalid include, empty include, invalid format)
+- **ConfigLoader.load** error paths (nonexistent configPath, defaults fallback)
+- **OutdatedChecker.getExitCode** (violation+failOnAny, no-violation, pass-through)
+- **calculateVersionDiff** edge cases (unparseable current/latest, regression, exact equal)
+- **isExcluded** glob caching (regex reuse, special chars, multiple patterns)
+- **Formatter** instance methods (markdown/table/json/text/v formatVerbose with config)
+
+Coverage: branches 86.42% → **90.77%** (+4.35%). Tests: 220 → **267** (+47).
