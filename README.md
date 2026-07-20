@@ -18,9 +18,11 @@ CI-friendly dependency version threshold checker with configurable version drift
 - ✅ Semantic version thresholding — configure max allowed major/minor/patch drift
 - ✅ Smart default policies — sensible defaults for different project types
 - ✅ Human-friendly output — clear warnings about policy violations
-- ✅ Multiple output formats — text, table, JSON
+- ✅ Multiple output formats — text, table, JSON, markdown
 - ✅ Meaningful exit codes — CI can gate builds based on results
 - ✅ Configurable — CLI options + config file support
+- ✅ Transitive dependency checking — scans package-lock.json for indirect deps
+- ✅ Built-in caching — avoids redundant registry requests
 - ✅ TypeScript implementation
 
 ## Installation
