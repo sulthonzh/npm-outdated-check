@@ -1,6 +1,6 @@
 {
   "name": "npm-outdated-check",
-  "version": "1.44.0",
+  "version": "1.45.0",
   "description": "CI-friendly dependency version threshold checker with configurable version drift limits and meaningful exit codes",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -26,8 +26,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "pretest": "npm run build",
-    "test": "node --test test/test.mjs",
-    "test:watch": "node --test --watch test/test.mjs",
+    "test": "node --test test/test.mjs test/coverage-gaps.test.mjs test/coverage-gaps-2.test.mjs",
+    "test:watch": "node --test --watch test/test.mjs test/coverage-gaps.test.mjs test/coverage-gaps-2.test.mjs",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint 'src/**/*.ts'",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
