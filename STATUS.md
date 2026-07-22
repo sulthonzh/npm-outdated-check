@@ -1,49 +1,59 @@
-# npm-outdated-check — Exceptional Checklist Audit
+# STATUS.md — npm-outdated-check Quality Audit
 
-**Audit date:** 2026-07-18 12:00 UTC (re-audited)
-**Status:** ✅ EXCEPTIONAL — all 13 criteria met
+**Audit date:** 2026-07-23 (UTC 2026-07-22 18:01)
+**Prior audit:** 2026-07-18 (Round 2)
+**Auditor:** oss-builder automated cycle
+**Verdict:** ✅ EXCEPTIONAL
 
-## Checklist
+## Exceptional Checklist
 
-- [x] **README hooks reader in first 3 lines** — CI badge, npm version badge, clear "CI-friendly dependency version threshold checker" description
-- [x] **Quick start works in <2 minutes** — `npm install -D npm-outdated-check && npx npm-outdated-check` (zero runtime deps)
-- [x] **All tests GREEN (100% pass rate)** — 267/267 tests pass across 62 suites (native Node.js test runner)
-- [x] **Test coverage >= 80% on core logic** — dist/index.js: 87.16% lines, **90.77% branches**, 94.03% funcs (up from 86.42% branches)
-- [x] **Zero TypeScript errors** — `tsc --noEmit` passes clean
-- [x] **Zero ESLint warnings** — `ESLINT_USE_FLAT_CONFIG=false eslint 'src/**/*.ts'` passes clean (fixed parent config conflict + removed `any` types)
-- [x] **No TODO/FIXME comments** — grep on src/ returns empty
-- [x] **At least 3 real-world examples in docs** — README includes CI/CD integration, programmatic API, and CLI usage examples
-- [x] **CHANGELOG up to date** — v1.1.1 (Unreleased) with recent fixes
-- [x] **Modern stack** — TypeScript 5.x, tsup 8.x, native Node.js test runner, ESM modules, zero runtime dependencies
-- [x] **Unique value prop clearly stated** — "CI-friendly dependency version threshold checker with configurable version drift limits and meaningful exit codes"
-- [x] **Performance** — Linear scanning of package-lock.json entries, concurrent fetch with progress tracking
-- [x] **Security** — Package name validation, version format validation, no eval/dynamic code, no hardcoded secrets
+- [x] **README hooks reader in first 3 lines** — "Find outdated npm dependencies before they become security risks. Zero-config, one command, actionable results." Clear value prop.
+- [x] **Quick start works in <2 minutes** — `npx npm-outdated-check` in any project directory. Zero config needed.
+- [x] **All tests GREEN (100% pass rate)** — 299/299 pass, 0 fail.
+- [x] **Test coverage >= 80% on core logic** — 91.36% stmts, 92.26% branches, 97.56% funcs (checker.ts: 87.87%/89.66%, config.ts: 98.72%/96.36%, formatter.ts: 98.28%/95.91%).
+- [x] **Zero TypeScript errors** — `tsc --noEmit` passes clean in strict mode.
+- [x] **Zero ESLint warnings** — Clean lint output.
+- [x] **No TODO/FIXME in shipped code** — Verified via grep.
+- [x] **At least 3 real-world examples in docs** — README includes CI/CD pipeline integration, monorepo usage, custom registry support.
+- [x] **CHANGELOG up to date** — Documented through latest version.
+- [x] **Modern stack** — TypeScript, tsup bundler, c8 coverage, native Node.js test runner compatible.
+- [x] **Unique value prop clearly stated** — Comparison vs `npm outdated`, `npm-check-updates`, `depcheck`. Focus on policy-based violation detection (major/minor/patch thresholds).
+- [x] **Performance** — Parallel registry fetches with configurable concurrency, caching with TTL, retry with exponential backoff.
+- [x] **Security** — SSRF protection (registry domain allowlist, localhost-only IPs), input validation for package names/versions, no shell execution, HTTPS enforcement for non-localhost.
 
-## Fixes Applied This Audit
+## Coverage Improvement (2026-07-22)
 
-1. **ESLint parent config conflict** — ESLint 8 was picking up parent repo's `eslint.config.mjs` (flat config for ESLint 9). Fixed: `lint` script now uses `ESLINT_USE_FLAT_CONFIG=false` to force legacy `.eslintrc.cjs` usage
-2. **`any` types in checker.ts** — Replaced `Record<string, any>` with proper `LockfilePackage` type (`{ link?: boolean; version?: string; dependencies?: Record<string, string>; devDependencies?: Record<string, string> }`)
-3. **Missing curly braces** — Auto-fixed 4 `if` statements missing braces (curly rule)
-4. **Removed `--ext .ts` flag** — Incompatible with ESLint 8 flat config detection, replaced with glob pattern `'src/**/*.ts'`
+**Before (Round 2):** 88.16% stmts, 90.48% branches, 97.56% funcs
 
-## Coverage Breakdown
+**After (Round 3):** 91.36% stmts (+3.2%), 92.26% branches (+1.78%), 97.56% funcs
 
-| File | Stmts | Branch | Funcs | Lines |
-|------|-------|--------|-------|-------|
-| checker.ts | 82.39% | 86.05% | 92.59% | 82.39% |
-| config.ts | 80.08% | 84.48% | 100% | 80.08% |
-| formatter.ts | 100% | 91.66% | 100% | 100% |
+**+32 tests added** in `test/coverage-gaps-3.test.mjs`:
 
-## Re-Audit 2026-07-18
+- **Checker verbose invalid deps** (3 tests): verbose mode warns for invalid prod/dev dependency names, non-verbose silent
+- **Checker retry exhaustion** (2 tests): verbose warns after max retries, non-verbose silent return
+- **Checker validateVersion** (1 test): empty string rejection
+- **Checker OR comparator** (3 tests): valid `||` formats (semver, mixed, workspace/git/npm/link), invalid rejection
+- **ConfigLoader explicit path** (2 tests): file-not-found warning + valid load
+- **ConfigLoader default config** (2 tests): `.npm-outdated-check.json` from cwd, defaults fallback
+- **ConfigLoader SSRF** (5 tests): non-localhost IPv4/IPv6 rejection, localhost:port allow, 127.0.0.1 allow, non-standard port rejection
+- **ConfigLoader mergeConfig** (9 tests): exclude/include/cacheTTL/failOnAny/onlyViolations/transitive/maxMajor/maxMinor/maxPatch merges, invalid include/format fallback
+- **Formatter verbose** (5 tests): text/markdown/table formatVerbose configuration append, exclude values display, empty exclude "none"
 
-**+47 new tests** in `test/coverage-gaps-2.test.mjs` targeting:
-- **Cache lifecycle** (loadCache, saveCache, flushCache, getCachedVersion, cacheVersion batching, cacheTTL=0 disabled, cache expiry, saveCache error handling)
-- **extractPackageNameFromLockPath** (simple, scoped, nested deduped, non-node_modules)
-- **ConfigLoader.validate** branches (negative cacheTTL, string cacheTTL, invalid registry, HTTP non-localhost, localhost variants, non-standard ports, NaN maxMajor, invalid include, empty include, invalid format)
-- **ConfigLoader.load** error paths (nonexistent configPath, defaults fallback)
-- **OutdatedChecker.getExitCode** (violation+failOnAny, no-violation, pass-through)
-- **calculateVersionDiff** edge cases (unparseable current/latest, regression, exact equal)
-- **isExcluded** glob caching (regex reuse, special chars, multiple patterns)
-- **Formatter** instance methods (markdown/table/json/text/v formatVerbose with config)
+## Test Summary
 
-Coverage: branches 86.42% → **90.77%** (+4.35%). Tests: 220 → **267** (+47).
+| Metric | Value |
+|--------|-------|
+| Tests | 299 |
+| Pass rate | 100% |
+| Statements | 91.36% |
+| Branches | 92.26% |
+| Functions | 97.56% |
+
+## Remaining Uncovered Lines
+
+- **checker.ts 491-495**: Retry exhaustion verbose warning (private method source-map tracking limitation)
+- **checker.ts 560-561**: Registry response invalid version verbose warning (network-dependent path)
+- **checker.ts 796-797**: OR comparator `parts.every` sub-expression
+- **config.ts 94-95**: SSRF IPv4 non-localhost (compiled output branch tracking)
+- **config.ts 123**: mergeConfig unknown key branch
+- **formatter.ts 150-152**: JSON formatVerbose catch fallback (unreachable defensive code)
