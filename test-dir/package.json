@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "react": "^18.2.0",
+    "react": "^19.0.0",
     "express": "^5.0.0",
     "lodash": "^4.17.20",
     "axios": "^1.4.0",
@@ -20,6 +20,6 @@
     "svelte": "^4.0.0",
     "solid-js": "^1.7.0",
     "qwik": "^1.0.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^19.0.0"
   }
 }
