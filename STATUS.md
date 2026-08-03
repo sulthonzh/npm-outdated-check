@@ -1,6 +1,6 @@
 # STATUS.md — npm-outdated-check Quality Audit
 
-**Audit date:** 2026-08-01 (UTC 2026-07-31 19:55)
+**Audit date:** 2026-08-04 (UTC 2026-08-03 21:47)
 **Prior audit:** 2026-07-23 (Round 3)
 **Auditor:** oss-builder automated cycle
 **Verdict:** ✅ EXCEPTIONAL
@@ -70,11 +70,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Tests | 299 |
+| Tests | 326 |
 | Pass rate | 100% |
-| Statements | 91.36% |
-| Branches | 92.26% |
-| Functions | 97.56% |
+| Statements | 96.16% |
+| Branches | 93.39% |
+| Functions | 100% |
 
 ## Remaining Uncovered Lines
 
