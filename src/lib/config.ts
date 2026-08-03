@@ -42,7 +42,7 @@ export class ConfigLoader {
         
         // Validate user config structure
         this.validateUserConfig(userConfig);
-      } catch (error) {
+      } catch (_error) {
         // If config file doesn't exist, use defaults instead of throwing error
         // This allows the tool to work when no explicit config file is provided
         console.warn(`Config file not found at ${configPath}, using defaults`);
@@ -96,7 +96,7 @@ export class ConfigLoader {
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         if (!error.message.includes('Registry hostname not allowed') && !error.message.includes('Registry IP addresses are not allowed')) {
-          throw new Error(`Invalid registry URL: ${userConfig.registry}`);
+          throw new Error(`Invalid registry URL: ${userConfig.registry}`, { cause: err });
         }
         throw error;
       }

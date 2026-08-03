@@ -529,7 +529,9 @@ continue;
         // Consume body to release socket back to the connection pool.
         // In Node.js undici, unconsumed response bodies keep sockets occupied
         // until timeout, causing pool exhaustion under sustained errors.
-        try { await response.body?.cancel(); } catch {}
+        try {
+          await response.body?.cancel();
+        } catch { /* ignore cancellation errors */ }
         if (response.status === 404) {
           // Package not found - this is a common case for invalid package names
           return null;
@@ -557,7 +559,7 @@ continue;
       return latest;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(`Request timeout for ${packageName}`);
+        throw new Error(`Request timeout for ${packageName}`, { cause: error });
       }
       throw error;
     }
@@ -778,7 +780,6 @@ return false;
     }
 
     // Allow valid npm version specifiers that were previously rejected
-    // eslint-disable-next-line no-useless-escape
     const versionRegex = /^[\^~><=]*\d+(\.\d+)*(\.[\w-]+)?$/;
 
     // Standard semver ranges (^, ~, >=, etc.)

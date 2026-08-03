@@ -3,7 +3,8 @@
     "target": "ES2022",
     "module": "ES2022",
     "lib": ["ES2022"],
-    "moduleResolution": "node",
+    "types": ["node"],
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "allowJs": true,
     "outDir": "./dist",
@@ -18,6 +19,7 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "ignoreDeprecations": "6.0",
     "esModuleInterop": true
   },
   "include": ["src/**/*"],

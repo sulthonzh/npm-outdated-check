@@ -30,3 +30,4 @@ tsup.config.d.ts.map
 tsup.config.js
 tsup.config.js.map
 *.tgz
+.npm-outdated-cache/
