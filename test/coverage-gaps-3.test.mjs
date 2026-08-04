@@ -68,7 +68,9 @@ describe('Checker: Verbose Invalid Deps Warnings', () => {
       // Override the network method to avoid actual fetches
       checker.fetchLatestVersionsConcurrent = async (names) => {
         const m = new Map();
-        for (const n of names) m.set(n, '1.0.0');
+        for (const n of names) {
+m.set(n, '1.0.0');
+}
         return m;
       };
       await checker.check();
@@ -92,7 +94,9 @@ describe('Checker: Verbose Invalid Deps Warnings', () => {
       }));
       checker.fetchLatestVersionsConcurrent = async (names) => {
         const m = new Map();
-        for (const n of names) m.set(n, '1.0.0');
+        for (const n of names) {
+m.set(n, '1.0.0');
+}
         return m;
       };
       await checker.check();
@@ -116,7 +120,9 @@ describe('Checker: Verbose Invalid Deps Warnings', () => {
       }));
       checker.fetchLatestVersionsConcurrent = async (names) => {
         const m = new Map();
-        for (const n of names) m.set(n, '1.0.0');
+        for (const n of names) {
+m.set(n, '1.0.0');
+}
         return m;
       };
       await checker.check();
@@ -324,8 +330,7 @@ describe('ConfigLoader: Default Config File', () => {
 
 describe('ConfigLoader: SSRF IP Validation', () => {
   it('validateUserConfig throws on non-localhost IPv4', () => {
-    const tmpDir = tmpdir();
-    // Use validate() which calls the same URL validation logic
+    // validateUserConfig throws on non-localhost IPv4
     const result = ConfigLoader.validate(makeConfig({
       registry: 'https://192.168.1.1/',
     }));

@@ -1,7 +1,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { OutdatedChecker, ConfigLoader, Formatter } from '../dist/index.js';
-import { mkdtemp, rm, writeFile, mkdir, readFile, access } from 'fs/promises';
+import { mkdtemp, rm, writeFile, mkdir, access } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -162,7 +162,7 @@ describe('Cache Lifecycle Coverage Gaps', () => {
 // ─── ConfigLoader.validate additional coverage ───
 
 describe('ConfigLoader.validate additional branches', () => {
-  const makeValidConfig = (overrides = {}) => makeConfig({
+  const _makeValidConfig = (overrides = {}) => makeConfig({
     ...overrides,
   });
 
@@ -278,11 +278,8 @@ describe('ConfigLoader.load error paths', () => {
 describe('ConfigLoader.mergeConfig type branches', () => {
   it('ignores exclude when not an array', () => {
     // Access private mergeConfig via prototype
-    const merged = ConfigLoader.mergeConfig.call = (() => {
-      // mergeConfig is private but we can test it indirectly through load
-      // by providing a config file with wrong type
-      return null;
-    })();
+    // mergeConfig is private but we can test it indirectly through load
+    // by providing a config file with wrong type
     // Test indirectly: create a user config object and merge
     const defaultCfg = makeConfig();
     const userCfg = { exclude: 'not-an-array', maxMajor: 1 };

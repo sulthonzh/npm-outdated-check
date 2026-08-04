@@ -721,7 +721,9 @@ describe('Network & Cache', () => {
     let calls = 0;
     globalThis.fetch = async () => {
       calls++;
-      if (calls < 3) throw new Error('Network error');
+      if (calls < 3) {
+throw new Error('Network error');
+}
       return {
         ok: true,
         status: 200,
@@ -729,7 +731,7 @@ describe('Network & Cache', () => {
       };
     };
 
-    const { mkdtempSync, writeFileSync, rmSync } = await import('fs');
+    const { mkdtempSync, writeFileSync } = await import('fs');
     const { tmpdir } = await import('os');
     const { join } = await import('path');
     const tmpDir = mkdtempSync(join(tmpdir(), 'npm-outdated-test-'));
@@ -738,7 +740,7 @@ describe('Network & Cache', () => {
     }));
 
     const checker = new OutdatedChecker(makeConfig({ cacheTTL: 0, verbose: true }), tmpDir);
-    const { totalChecked } = await checker.check();
+    await checker.check();
     assert.ok(calls >= 2);
   });
 
@@ -1097,7 +1099,7 @@ describe('Edge Cases: fetchLatestVersionOnce with mocked fetch', () => {
 
   it('fetches and returns latest version', async () => {
     const checker = new OutdatedChecker(makeConfig({ verbose: true }));
-    globalThis.fetch = async (url, opts) => {
+    globalThis.fetch = async (_url, _opts) => {
       return {
         ok: true,
         status: 200,
@@ -1146,7 +1148,7 @@ describe('Edge Cases: fetchLatestVersionsConcurrent progress', () => {
     const checker = new OutdatedChecker(makeConfig({ verbose: true, failOnAny: false }));
     // Mock fetchLatestVersionWithRetry to avoid network calls
     let callCount = 0;
-    checker.fetchLatestVersionWithRetry = async (name) => {
+    checker.fetchLatestVersionWithRetry = async (_name) => {
       callCount++;
       return `1.0.${callCount}`;
     };
@@ -1161,7 +1163,9 @@ describe('Edge Cases: fetchLatestVersionsConcurrent progress', () => {
   it('handles fetch failures gracefully', async () => {
     const checker = new OutdatedChecker(makeConfig({ verbose: true }));
     checker.fetchLatestVersionWithRetry = async (name) => {
-      if (name === 'bad-pkg') throw new Error('Network error');
+      if (name === 'bad-pkg') {
+throw new Error('Network error');
+}
       return '1.0.0';
     };
     const results = await checker.fetchLatestVersionsConcurrent(['good-pkg', 'bad-pkg']);

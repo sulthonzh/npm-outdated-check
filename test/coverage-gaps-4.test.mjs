@@ -26,8 +26,12 @@ const makeConfig = (overrides = {}) => ({
 describe('Checker: Lockfile v1 Transitive Packages', () => {
   let origCwd;
 
-  before(() => { origCwd = process.cwd(); });
-  after(() => { process.chdir(origCwd); });
+  before(() => {
+ origCwd = process.cwd(); 
+});
+  after(() => {
+ process.chdir(origCwd); 
+});
 
   it('parses lockfileVersion 1 string-format dependencies', async () => {
     const tmpDir = await mkdtemp(join(tmpdir(), 'noc-lock1-str-'));
@@ -46,7 +50,9 @@ describe('Checker: Lockfile v1 Transitive Packages', () => {
       const checker = new OutdatedChecker(makeConfig({ verbose: false, cacheTTL: 0, transitive: true }));
       checker.fetchLatestVersionsConcurrent = async (names) => {
         const m = new Map();
-        for (const n of names) m.set(n, '4.17.21');
+        for (const n of names) {
+m.set(n, '4.17.21');
+}
         return m;
       };
       const result = await checker.checkWithTransitive();
@@ -74,7 +80,9 @@ describe('Checker: Lockfile v1 Transitive Packages', () => {
       const checker = new OutdatedChecker(makeConfig({ verbose: false, cacheTTL: 0, transitive: true }));
       checker.fetchLatestVersionsConcurrent = async (names) => {
         const m = new Map();
-        for (const n of names) m.set(n, '4.18.2');
+        for (const n of names) {
+m.set(n, '4.18.2');
+}
         return m;
       };
       const result = await checker.checkWithTransitive();
@@ -101,7 +109,9 @@ describe('Checker: Lockfile v1 Transitive Packages', () => {
       const checker = new OutdatedChecker(makeConfig({ verbose: false, cacheTTL: 0, transitive: true }));
       checker.fetchLatestVersionsConcurrent = async (names) => {
         const m = new Map();
-        for (const n of names) m.set(n, '29.7.0');
+        for (const n of names) {
+m.set(n, '29.7.0');
+}
         return m;
       };
       const result = await checker.checkWithTransitive();
@@ -129,7 +139,9 @@ describe('Checker: Lockfile v1 Transitive Packages', () => {
       const checker = new OutdatedChecker(makeConfig({ verbose: false, cacheTTL: 0, transitive: true }));
       checker.fetchLatestVersionsConcurrent = async (names) => {
         const m = new Map();
-        for (const n of names) m.set(n, '4.17.21');
+        for (const n of names) {
+m.set(n, '4.17.21');
+}
         return m;
       };
       const result = await checker.checkWithTransitive();
@@ -243,8 +255,12 @@ describe('Checker: Lockfile v1 Transitive Packages', () => {
 describe('Checker: Lockfile v2/v3 Verbose Warnings', () => {
   let origCwd;
 
-  before(() => { origCwd = process.cwd(); });
-  after(() => { process.chdir(origCwd); });
+  before(() => {
+ origCwd = process.cwd(); 
+});
+  after(() => {
+ process.chdir(origCwd); 
+});
 
   it('verbose mode warns about invalid version in lockfile v2/3 packages', async () => {
     const tmpDir = await mkdtemp(join(tmpdir(), 'noc-v2-badver-'));
@@ -324,7 +340,9 @@ describe('Checker: Lockfile v2/v3 Verbose Warnings', () => {
       const checker = new OutdatedChecker(makeConfig({ verbose: false, cacheTTL: 0, transitive: true }));
       checker.fetchLatestVersionsConcurrent = async (names) => {
         const m = new Map();
-        for (const n of names) m.set(n, '4.17.21');
+        for (const n of names) {
+m.set(n, '4.17.21');
+}
         return m;
       };
       const result = await checker.checkWithTransitive();
