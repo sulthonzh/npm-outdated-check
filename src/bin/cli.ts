@@ -76,9 +76,7 @@ async function main() {
 
     const basePath = options.path || process.cwd();
     const checker = new OutdatedChecker(config, basePath);
-    const { violations, totalChecked } = options.transitive 
-      ? await checker.checkWithTransitive()
-      : await checker.check();
+    const { violations, totalChecked } = await checker.check();
 
     const result = {
       violations,
