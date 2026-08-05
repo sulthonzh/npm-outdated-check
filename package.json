@@ -26,8 +26,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "pretest": "npm run build",
-    "test": "node --test test/test.mjs test/coverage-gaps.test.mjs test/coverage-gaps-2.test.mjs test/coverage-gaps-3.test.mjs test/coverage-gaps-4.test.mjs",
-    "test:watch": "node --test --watch test/test.mjs test/coverage-gaps.test.mjs test/coverage-gaps-2.test.mjs test/coverage-gaps-3.test.mjs test/coverage-gaps-4.test.mjs",
+    "test": "node --test --test-concurrency=1 test/test.mjs test/coverage-gaps.test.mjs test/coverage-gaps-2.test.mjs test/coverage-gaps-3.test.mjs test/coverage-gaps-4.test.mjs",
+    "test:watch": "node --test --watch --test-concurrency=1 test/test.mjs test/coverage-gaps.test.mjs test/coverage-gaps-2.test.mjs test/coverage-gaps-3.test.mjs test/coverage-gaps-4.test.mjs",
     "lint": "eslint 'src/**/*.ts'",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
@@ -68,7 +68,7 @@
     "js-yaml": "^5.0.0",
     "prettier": "^3.2.5",
     "tsup": "^8.0.2",
-    "typescript": "^7.0.0",
+    "typescript": "^6.0.0",
     "typescript-eslint": "^8.65.0"
   },
   "repository": {
