@@ -1,6 +1,6 @@
 {
   "name": "npm-outdated-check",
-  "version": "1.86.2",
+  "version": "1.86.7",
   "description": "CI-friendly dependency version threshold checker with configurable version drift limits and meaningful exit codes",
   "type": "module",
   "main": "./dist/index.cjs",
