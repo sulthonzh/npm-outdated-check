@@ -10,7 +10,7 @@
     "eslint": "^10.0.0",
     "prettier": "^3.0.0",
     "jest": "^30.0.0",
-    "vitest": "^4.0.0",
+    "vitest": "^5.0.0",
     "cypress": "^15.0.0",
     "storybook": "^10.0.0",
     "tailwindcss": "^4.0.0",
